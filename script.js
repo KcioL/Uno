@@ -346,7 +346,10 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   createDeck();
   discardPile = [];
   playDirection = 1;
-  activePlayerIndex = 0;
+  
+  // NOUVEAU : On choisit un joueur au hasard pour commencer !
+  activePlayerIndex = Math.floor(Math.random() * currentPlayersData.length);
+  
   gameStatus = 'playing';
   winner = null;
   unoVulnerablePlayer = null;
@@ -370,7 +373,6 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   currentColor = firstCard.color;
   updateFirebaseState();
 }
-
 function renderTable() {
   if (gameStatus === 'finished') {
     document.getElementById('win-text').innerHTML = `🎉 ${players[winner].name} a gagné ! 🎉`;
