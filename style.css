@@ -24,33 +24,6 @@ body {
   text-align: center;
 }
 
-#lobby-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap; 
-}
-
-#join-section {
-  display: flex;
-  gap: 8px;
-}
-
-.lobby-input, .lobby-select {
-  padding: 8px;
-  border-radius: 6px;
-  border: none;
-  font-weight: bold;
-  text-align: center;
-  background: #ecf0f1;
-}
-
-.code-input {
-  text-transform: uppercase;
-  width: 100px;
-}
-
 .btn {
   padding: 8px 15px;
   border: none;
@@ -60,14 +33,6 @@ body {
 }
 .btn-start { background-color: #e74c3c; color: white; }
 .btn-secondary { background-color: #3498db; color: white; }
-
-.room-display {
-  color: #f1c40f;
-  font-weight: bold;
-  font-size: 20px;
-  margin-top: 10px;
-  text-align: center;
-}
 
 .turn-indicator {
   background-color: rgba(0, 0, 0, 0.7);
@@ -273,95 +238,19 @@ body {
   cursor: pointer;
 }
 
-/* --- ANIMATIONS AMELIOREES --- */
+/* --- ANIMATIONS AMELIOREES (Trajectoires réalistes) --- */
 @keyframes playCardAnim {
   0% { transform: translateY(180px) scale(0.8); opacity: 0; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
-.anim-play { animation: playCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.anim-play {
+  animation: playCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 
 @keyframes drawCardAnim {
   0% { transform: translateY(-150px) scale(0.5); opacity: 0; }
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
-.anim-draw { animation: drawCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-
-/* ========================================================= */
-/* --- RESPONSIVITÉ POUR SMARTPHONE (Écrans < 768px) --- */
-/* ========================================================= */
-@media (max-width: 768px) {
-  body, html {
-    overflow-x: hidden;
-  }
-  
-  .game-container {
-    width: 100vw;
-    overflow-x: hidden;
-    padding: 5px;
-    box-sizing: border-box;
-  }
-
-  .game-header {
-    flex-direction: column !important;
-    align-items: center !important;
-    height: auto !important;
-    padding: 15px 10px !important;
-  }
-
-  #lobby-controls {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    width: 100% !important;
-    gap: 10px !important;
-  }
-
-  #lobby-controls > *, #join-section input, #join-section button {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
-  }
-
-  #join-section {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    gap: 10px !important;
-  }
-
-  .turn-indicator {
-    width: 95% !important;
-    margin: 10px auto !important;
-    white-space: normal !important;
-    font-size: 14px !important;
-    line-height: 1.4 !important;
-    padding: 10px !important;
-    box-sizing: border-box !important;
-  }
-
-  .card { width: 50px; height: 75px; font-size: 20px; border-width: 3px; border-radius: 6px; }
-  .uno-logo-back { font-size: 14px; }
-  .center-table { transform: scale(0.85); }
-  
-  .active-player-zone { width: 100vw; bottom: 5px; }
-  .hand-container { 
-    display: flex; 
-    overflow-x: auto; 
-    padding: 10px; 
-    justify-content: flex-start;
-    -webkit-overflow-scrolling: touch; 
-  }
-  .hand-container .card { flex-shrink: 0; margin-left: -20px; }
-  .hand-container .card:first-child { margin-left: 0; }
-
-  .opponent-zone { transform: scale(0.5); }
-  .pos-top { top: 5%; }
-  .pos-left { left: -45px; }
-  .pos-right { right: -45px; }
-  .pos-top-left { top: 8%; left: -20px; }
-  .pos-top-right { top: 8%; right: -20px; }
-
-  .overlay-card { width: 90%; padding: 15px; }
-  .color-buttons button { width: 60px; height: 60px; }
-  .uno-btn, .contre-uno-btn { padding: 10px 20px; font-size: 18px; }
+.anim-draw {
+  animation: drawCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
