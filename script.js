@@ -216,8 +216,14 @@ function syncGameState(data) {
 
   if (gameStatus === 'playing') {
     const currentPlayer = players[activePlayerIndex];
-    // Affichage spécial si une pénalité est en cours
-    const penText = drawPenalty > 0 ? `<br><span style="color:#e74c3c; font-size:16px;">⚠️ PÉNALITÉ : +${drawPenalty} (Joue un +2 ou pioche)</span>` : '';
+    
+    // Texte dynamique selon la carte qui a initié la pénalité
+    let penText = '';
+    if (drawPenalty > 0 && discardPile.length > 0) {
+      const topCard = discardPile[discardPile.length - 1];
+      const typeRequis = topCard.value === '+4' ? '+4' : '+2';
+      penText = `<br><span style="color:#e74c3c; font-size:16px;">⚠️ PÉNALITÉ : +${drawPenalty} (Joue un ${typeRequis} ou pioche)</span>`;
+    }
     
     if (activePlayerIndex === myPlayerId) {
       elTurnIndicator.innerHTML = `<span style="color: #2ecc71;">C'est à TON tour !</span> (Couleur : ${getFrenchColor(currentColor)})${penText}`;
@@ -268,12 +274,14 @@ function drawCard(player, count = 1) {
 }
 
 function isPlayable(card) {
-  // RÈGLE +2 : Si une pénalité est active, seul un +2 peut être joué pour surenchérir
+  const topCard = discardPile[discardPile.length - 1];
+
+  // RÈGLE STRICTE : Si une pénalité est active, on doit répondre avec le même type de carte
   if (drawPenalty > 0) {
-    return card.value === '+2';
+    if (topCard.value === '+2') return card.value === '+2';
+    if (topCard.value === '+4') return card.value === '+4';
   }
   
-  const topCard = discardPile[discardPile.length - 1];
   if (card.color === 'black') return true;
   if (card.color === currentColor) return true;
   if (card.value === topCard.value) return true;
@@ -562,11 +570,9 @@ function applySpecialEffects(cardValue) {
   } else if (cardValue === '⊘') {
     skipNext = true;
   } else if (cardValue === '+2') {
-    drawPenalty += 2; // On augmente la pénalité au lieu de piocher instantanément
-    // On ne "skipNext" pas, le tour passe normalement à la victime pour qu'elle puisse répondre
+    drawPenalty += 2; 
   } else if (cardValue === '+4') {
-    skipNext = true;
-    drawCard(nextPlayer, 4); // Le +4 reste standard (non cumulable dans cette version)
+    drawPenalty += 4; // NOUVEAU : Le +4 s'ajoute à la pénalité au lieu de skipper le tour
   }
 
   let steps = skipNext ? 2 : 1;
