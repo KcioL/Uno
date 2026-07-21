@@ -24,13 +24,13 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
 .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
 .btn-start { background-color: #e74c3c; color: white; }
 
-/* --- NOUVEAU : La table globale --- */
+/* --- La table globale --- */
 .uno-table { 
   background: radial-gradient(circle, #34495e 0%, #2c3e50 100%); 
   border-radius: 30px; 
   border: 8px solid #bdc3c7; 
   min-height: 80vh; 
-  position: relative; /* Permet le placement libre des éléments à l'intérieur */
+  position: relative; 
   overflow: hidden;
   box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
 }
@@ -51,7 +51,7 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
 .draw-pile:hover { transform: translateY(-5px); box-shadow: -2px 7px 15px rgba(0,0,0,0.6); }
 .uno-logo-back { color: #e74c3c; font-weight: 900; font-size: 1.5rem; transform: rotate(-20deg); text-shadow: 2px 2px 0px white; }
 
-/* Indicateur de tour (Placé juste au-dessus du centre) */
+/* Indicateur de tour */
 .turn-indicator { 
   position: absolute;
   top: 25%;
@@ -67,12 +67,11 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
   white-space: nowrap;
 }
 
-/* --- NOUVEAU : Positionnement des Adversaires --- */
+/* --- Positionnement des Adversaires --- */
 .opponents-container { 
   position: absolute; 
-  top: 0; left: 0; width: 100%; height: 100%; 
-  pointer-events: none; /* Laisse passer les clics vers le centre */
-  z-index: 5;
+  top: 0; left: 0; right: 0; bottom: 0; 
+  pointer-events: none; 
 }
 
 .opponent-zone { 
@@ -80,15 +79,39 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
   display: flex; 
   flex-direction: column; 
   align-items: center; 
-  gap: 5px; 
+  transform: scale(0.7); 
 }
 
-.pos-top { top: 20px; left: 50%; transform: translateX(-50%); }
-.pos-left { top: 50%; left: 20px; transform: translateY(-50%); }
-.pos-right { top: 50%; right: 20px; transform: translateY(-50%); }
+.opponent-name { 
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.5);
+  padding: 5px 15px;
+  border-radius: 20px;
+}
 
-.opponent-name { background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; border: 1px solid #444; }
-.opponent-hand { display: flex; gap: -35px; justify-content: center; transform: scale(0.5); }
+.opponent-hand { 
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.opponent-hand .card {
+  margin-left: -45px; 
+  box-shadow: -2px 0 5px rgba(0,0,0,0.3);
+}
+.opponent-hand .card:first-child {
+  margin-left: 0;
+}
+
+.pos-top { top: 5%; left: 50%; transform: translateX(-50%) scale(0.7); }
+.pos-left { top: 40%; left: -30px; transform: translateY(-50%) scale(0.7); }
+.pos-right { top: 40%; right: -30px; transform: translateY(-50%) scale(0.7); }
+.pos-top-left { top: 15%; left: 10%; transform: scale(0.7); }
+.pos-top-right { top: 15%; right: 10%; transform: scale(0.7); }
 
 /* Main du joueur actif (Placée en bas) */
 .active-player-zone { 
@@ -128,13 +151,6 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
 .card.back::before { content: 'UNO'; background: none; width: auto; height: auto; border-radius: 0; color: #e74c3c; font-weight: 900; font-size: 1.8rem; transform: rotate(-20deg); text-shadow: 2px 2px 0px white; }
 .card.back span { display: none; }
 
-/* Animation de vol depuis le centre dynamique */
-@keyframes flyFromCenter {
-  0% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
-  100% { opacity: 1; transform: translate(0, 0) scale(1); }
-}
-
-/* Effet au survol uniquement pour le joueur actif */
 .active-player-zone .card:not(.unplayable):hover { transform: translateY(-15px); z-index: 20; }
 
 /* Overlays */
@@ -148,21 +164,21 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
 .color-btn.green { background: var(--green); }
 .color-btn.yellow { background: var(--yellow); }
 
-/* --- ANIMATIONS DES CARTES --- */
+/* --- ANIMATIONS DES CARTES (Mises à jour fluides en 0.4s) --- */
 @keyframes playCardAnim {
-  0% { transform: scale(1.5) translateY(50px); opacity: 0; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+  0% { transform: translateY(180px) scale(0.8); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 .anim-play {
-  animation: playCardAnim 0.3s ease-out;
+  animation: playCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes drawCardAnim {
-  0% { transform: translateX(50px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
+  0% { transform: translateY(-150px) scale(0.5); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 .anim-draw {
-  animation: drawCardAnim 0.3s ease-out;
+  animation: drawCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* --- BOUTONS UNO & CONTRE UNO --- */
@@ -177,7 +193,7 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
   border-radius: 10px;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-  display: none; /* Caché par défaut */
+  display: none; 
   transition: transform 0.1s;
 }
 .uno-btn:active, .contre-uno-btn:active {
@@ -194,7 +210,6 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
 .contre-uno-btn {
   background-color: #f1c40f;
   color: #000;
-  /* La position sera générée aléatoirement en JS */
 }
 
 /* --- ÉCRAN DE VICTOIRE --- */
@@ -211,59 +226,9 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
   text-shadow: 0 0 20px #f1c40f;
   z-index: 2000;
 }
-/* --- POSITIONS DES ADVERSAIRES AUTOUR DE LA TABLE --- */
-.opponents-container {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none; /* Empêche les zones de bloquer les clics au centre */
-}
 
-.opponent-zone {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform: scale(0.7); /* On réduit un peu la taille des cartes adverses */
-}
-
-.opponent-name {
-  color: white;
-  font-weight: bold;
-  font-size: 24px;
-  margin-bottom: 10px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  background: rgba(0,0,0,0.5);
-  padding: 5px 15px;
-  border-radius: 20px;
-}
-
-.opponent-hand {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-}
-
-/* Chevauchement des cartes pour gagner de la place */
-.opponent-hand .card {
-  margin-left: -45px; 
-  box-shadow: -2px 0 5px rgba(0,0,0,0.3);
-}
-.opponent-hand .card:first-child {
-  margin-left: 0;
-}
-
-/* Les 5 positions possibles pour les adversaires */
-.pos-top { top: 5%; left: 50%; transform: translateX(-50%) scale(0.7); }
-.pos-left { top: 40%; left: -30px; transform: translateY(-50%) scale(0.7); }
-.pos-right { top: 40%; right: -30px; transform: translateY(-50%) scale(0.7); }
-.pos-top-left { top: 15%; left: 10%; transform: scale(0.7); }
-.pos-top-right { top: 15%; right: 10%; transform: scale(0.7); }
-/* ========================================================= */
-/* --- RESPONSIVITÉ POUR SMARTPHONE (Écrans < 768px) --- */
-/* ========================================================= */
-
+/* --- RESPONSIVITÉ SMARTPHONE --- */
 @media (max-width: 768px) {
-  /* Réduire la taille de l'en-tête et empiler le menu */
   .game-header h1 {
     font-size: 22px;
     margin: 5px 0;
@@ -280,7 +245,6 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
     justify-content: center;
   }
 
-  /* Réduire la taille des cartes pour qu'elles tiennent sur l'écran */
   .card {
     width: 50px;
     height: 75px;
@@ -293,38 +257,33 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
     font-size: 14px;
   }
 
-  /* Ajuster le centre de la table (Pioche / Défausse) */
   .center-table {
     transform: scale(0.85);
   }
 
-  /* Rendre la main du joueur "scrollable" s'il a beaucoup de cartes */
   .active-player-zone {
     width: 100vw;
     bottom: 5px;
-
   }
 
   .hand-container {
     display: flex;
-    overflow-x: auto; /* Permet de glisser avec le doigt de gauche à droite */
+    overflow-x: auto; 
     padding: 10px;
     justify-content: flex-start;
-    -webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
-
+    -webkit-overflow-scrolling: touch; 
   }
 
   .hand-container .card {
     flex-shrink: 0;
-    margin-left: -20px; /* Chevauchement plus prononcé */
+    margin-left: -20px; 
   }
   .hand-container .card:first-child {
     margin-left: 0;
   }
 
-  /* Rétrécir encore plus les adversaires et ajuster leurs positions */
   .opponent-zone {
-    transform: scale(0.5); /* Moitié de la taille normale */
+    transform: scale(0.5); 
   }
   .pos-top { top: 5%; }
   .pos-left { left: -45px; }
@@ -332,7 +291,6 @@ body { background-color: #2c3e50; color: #fff; display: flex; justify-content: c
   .pos-top-left { top: 8%; left: -20px; }
   .pos-top-right { top: 8%; right: -20px; }
 
-  /* Adapter l'écran de couleur et les boutons UNO */
   .overlay-card {
     width: 90%;
     padding: 15px;
