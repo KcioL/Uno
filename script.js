@@ -45,11 +45,16 @@ btnContre.className = 'contre-uno-btn';
 btnContre.textContent = 'Contre UNO !';
 document.body.appendChild(btnContre);
 
+// Modification : Ajout du bouton Rejouer sur l'écran de victoire
 const winScreen = document.createElement('div');
 winScreen.className = 'win-overlay hidden';
+winScreen.innerHTML = `
+  <div id="win-text"></div>
+  <button id="btn-replay" style="margin-top: 40px; padding: 15px 30px; font-size: 24px; font-weight: bold; cursor: pointer; border-radius: 10px; border: none; background: #2ecc71; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">Rejouer la partie</button>
+`;
 document.body.appendChild(winScreen);
 
-// --- LOGIQUE DES BOUTONS UNO ---
+// --- LOGIQUE DES BOUTONS UNO ET REJOUER ---
 btnUno.addEventListener('click', () => {
   if (unoVulnerablePlayer === myPlayerId) {
     unoVulnerablePlayer = null; // Protégé !
@@ -60,7 +65,6 @@ btnUno.addEventListener('click', () => {
 
 btnContre.addEventListener('click', () => {
   if (unoVulnerablePlayer !== null && unoVulnerablePlayer !== myPlayerId) {
-    // Punition : le joueur vulnérable pioche 2 cartes
     const vulnerable = players[unoVulnerablePlayer];
     drawCard(vulnerable, 2);
     const punishedName = vulnerable.name;
@@ -70,20 +74,22 @@ btnContre.addEventListener('click', () => {
   }
 });
 
-// --- GESTION DES SALONS FIREBASE ---
+document.getElementById('btn-replay').addEventListener('click', () => {
+  // N'importe quel joueur peut cliquer pour relancer la partie avec le même salon
+  startOnlineGameFromFirebase(players);
+});
 
+
+// --- GESTION DES SALONS FIREBASE ---
 btnCreateRoom.addEventListener('click', () => {
   roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
   myPlayerId = 0;
   isOnline = true;
 
-  // On récupère le pseudo (ou on met "Hôte" par défaut s'il n'a rien écrit)
   const myName = playerNameInput.value.trim() || 'Hôte';
-
   const maxPlayers = parseInt(selectMaxPlayers.value);
   let initialPlayers = [];
   for (let i = 0; i < maxPlayers; i++) {
-    // Le créateur prend la place 0, les autres sont "En attente"
     initialPlayers.push({ 
       id: i, 
       name: (i === 0) ? myName : 'En attente...', 
@@ -135,7 +141,6 @@ btnJoinRoom.addEventListener('click', () => {
       if (assignedId === -1) return alert("Le salon est complet !");
       myPlayerId = assignedId;
       
-      // On récupère le pseudo du joueur qui rejoint
       const myName = playerNameInput.value.trim() || `Joueur ${myPlayerId + 1}`;
       data.players[myPlayerId].joined = true;
       data.players[myPlayerId].name = myName;
@@ -218,7 +223,6 @@ function syncGameState(data) {
 }
 
 // --- LOGIQUE DU JEU UNO ---
-
 function createDeck() {
   deck = [];
   COLORS.forEach(color => {
@@ -252,7 +256,7 @@ function drawCard(player, count = 1) {
     }
     if (deck.length > 0) {
       const newCard = deck.pop();
-      newCard.isNew = true; // Pour l'animation
+      newCard.isNew = true; 
       player.hand.push(newCard);
     }
   }
@@ -276,6 +280,10 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   unoVulnerablePlayer = null;
 
   players = currentPlayersData;
+  
+  // NOUVEAU : On s'assure de vider les mains de tout le monde avant de relancer
+  players.forEach(p => { p.hand = []; });
+  
   players.forEach(p => drawCard(p, 7));
 
   let firstCard;
@@ -294,7 +302,7 @@ function startOnlineGameFromFirebase(currentPlayersData) {
 
 function renderTable() {
   if (gameStatus === 'finished') {
-    winScreen.innerHTML = `<div>🎉 ${players[winner].name} a gagné ! 🎉</div>`;
+    document.getElementById('win-text').innerHTML = `🎉 ${players[winner].name} a gagné ! 🎉`;
     winScreen.classList.remove('hidden');
     btnUno.style.display = 'none';
     btnContre.style.display = 'none';
@@ -303,7 +311,6 @@ function renderTable() {
     winScreen.classList.add('hidden');
   }
 
-  // Gestion de l'affichage des boutons UNO
   if (unoVulnerablePlayer !== null) {
     if (unoVulnerablePlayer === myPlayerId) {
       btnUno.style.display = 'block';
@@ -312,7 +319,6 @@ function renderTable() {
       btnUno.style.display = 'none';
       btnContre.style.display = 'block';
       
-      // Positionnement aléatoire pour "Contre UNO"
       if (btnContre.dataset.active !== "true") {
         btnContre.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
         btnContre.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
@@ -328,14 +334,12 @@ function renderTable() {
   if (discardPile.length === 0) return;
   const topCard = discardPile[discardPile.length - 1];
   
-  // Défausse avec animation
   elDiscardPile.innerHTML = '';
   const cardEl = document.createElement('div');
   cardEl.className = `card ${currentColor === 'black' ? topCard.color : currentColor} anim-play`;
   cardEl.innerHTML = `<span>${topCard.value}</span>`;
   elDiscardPile.appendChild(cardEl);
 
-  // Adversaires
   elOpponents.innerHTML = '';
   
   const numOpponents = players.length - 1;
@@ -384,7 +388,6 @@ function renderTable() {
     elOpponents.appendChild(oppZone);
   }
 
-  // Main du joueur
   const myPlayer = players[myPlayerId];
   if (!myPlayer || !myPlayer.hand) return;
 
