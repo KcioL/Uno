@@ -11,6 +11,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+    // Configuration Firebase avec l'URL de la base de données en région europe-west1
     const firebaseConfig = {
       apiKey: "AIzaSyCxlp7cztNKLDcQ54IjM3UiYTT6DUimLzw",
       authDomain: "uno-multi-5a1a0.firebaseapp.com",
@@ -34,7 +35,7 @@
     <header class="game-header">
       <h1>UNO En Ligne</h1>
       
-      <!-- Menu de salon en ligne original -->
+      <!-- Menu de salon en ligne avec sélecteur du nombre de joueurs et pseudo -->
       <div class="game-settings" id="lobby-controls">
         <input type="text" id="player-name-input" placeholder="Ton pseudo" style="padding: 6px; border-radius: 6px; border: none; font-weight: bold; width: 120px; text-align: center;">
         
