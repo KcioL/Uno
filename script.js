@@ -322,33 +322,62 @@ function renderTable() {
   cardEl.innerHTML = `<span>${topCard.value}</span>`;
   elDiscardPile.appendChild(cardEl);
 
-  // Adversaires
+
+// Adversaires
   elOpponents.innerHTML = '';
-  players.forEach((p, index) => {
-    if (index !== myPlayerId) {
-      const oppZone = document.createElement('div');
-      oppZone.className = `opponent-zone pos-top`; // Simplifié pour l'exemple
-      
-      const nameEl = document.createElement('div');
-      nameEl.className = 'opponent-name';
+  
+  // On calcule combien on a d'adversaires au total
+  const numOpponents = players.length - 1;
+  
+  // On attribue des positions (classes CSS) en fonction du nombre de joueurs
+  let positions = [];
+  if (numOpponents === 1) positions = ['pos-top'];
+  else if (numOpponents === 2) positions = ['pos-left', 'pos-right'];
+  else if (numOpponents === 3) positions = ['pos-left', 'pos-top', 'pos-right'];
+  else if (numOpponents === 4) positions = ['pos-left', 'pos-top-left', 'pos-top-right', 'pos-right'];
+  else if (numOpponents === 5) positions = ['pos-left', 'pos-top-left', 'pos-top', 'pos-top-right', 'pos-right'];
+
+  // On boucle sur les adversaires dans l'ordre de jeu, en partant de soi-même
+  for (let i = 1; i <= numOpponents; i++) {
+    const oppIndex = (myPlayerId + i) % players.length; // Calcul magique pour tourner autour de la table
+    const p = players[oppIndex];
+    const posClass = positions[i - 1];
+
+    const oppZone = document.createElement('div');
+    oppZone.className = `opponent-zone ${posClass}`;
+    
+    const nameEl = document.createElement('div');
+    nameEl.className = 'opponent-name';
+    
+    // Mettre en évidence le nom du joueur dont c'est le tour
+    if (activePlayerIndex === oppIndex) {
+      nameEl.style.color = '#f1c40f'; // Texte en jaune
+      nameEl.style.border = '2px solid #f1c40f'; // Bordure jaune
+      nameEl.textContent = `▶ ${p.name} (${p.hand ? p.hand.length : 0})`;
+    } else {
       nameEl.textContent = `${p.name} (${p.hand ? p.hand.length : 0})`;
-      
-      const handEl = document.createElement('div');
-      handEl.className = 'opponent-hand';
-      
-      if (p.hand) {
-        p.hand.forEach(() => {
-          const cEl = document.createElement('div');
-          cEl.className = 'card back';
-          handEl.appendChild(cEl);
-        });
-      }
-      
-      oppZone.appendChild(nameEl);
-      oppZone.appendChild(handEl);
-      elOpponents.appendChild(oppZone);
     }
-  });
+    
+    const handEl = document.createElement('div');
+    handEl.className = 'opponent-hand';
+    
+    if (p.hand) {
+      p.hand.forEach((c) => {
+        const cEl = document.createElement('div');
+        cEl.className = 'card back';
+        // Si l'adversaire vient de piocher cette carte, on lance l'animation
+        if (c.isNew) {
+          cEl.classList.add('anim-draw');
+          // On ne remet pas c.isNew = false ici, car seul l'adversaire lui-même doit valider l'animation sur son propre écran
+        }
+        handEl.appendChild(cEl);
+      });
+    }
+    
+    oppZone.appendChild(nameEl);
+    oppZone.appendChild(handEl);
+    elOpponents.appendChild(oppZone);
+  }
 
   // Main du joueur
   const myPlayer = players[myPlayerId];
