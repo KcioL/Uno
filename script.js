@@ -8,9 +8,13 @@ let activePlayerIndex = 0;
 let playDirection = 1;
 let currentColor = '';
 
+// Nouveaux états pour le multijoueur
 let roomCode = '';
 let myPlayerId = 0;
 let isOnline = false;
+let gameStatus = 'waiting'; // 'waiting', 'playing', 'finished'
+let winner = null;
+let unoVulnerablePlayer = null; // ID du joueur à qui il reste 1 carte
 
 // DOM Elements
 const lobbyControls = document.getElementById('lobby-controls');
@@ -29,6 +33,43 @@ const elActivePlayerName = document.getElementById('active-player-name');
 const elTurnIndicator = document.getElementById('turn-indicator');
 const colorPickerOverlay = document.getElementById('color-picker-overlay');
 
+// --- CREATION DYNAMIQUE DES ELEMENTS UNO & VICTOIRE ---
+const btnUno = document.createElement('button');
+btnUno.className = 'uno-btn';
+btnUno.textContent = 'UNO !';
+document.body.appendChild(btnUno);
+
+const btnContre = document.createElement('button');
+btnContre.className = 'contre-uno-btn';
+btnContre.textContent = 'Contre UNO !';
+document.body.appendChild(btnContre);
+
+const winScreen = document.createElement('div');
+winScreen.className = 'win-overlay hidden';
+document.body.appendChild(winScreen);
+
+// --- LOGIQUE DES BOUTONS UNO ---
+btnUno.addEventListener('click', () => {
+  if (unoVulnerablePlayer === myPlayerId) {
+    unoVulnerablePlayer = null; // Protégé !
+    updateFirebaseState();
+    elTurnIndicator.textContent = "Tu as annoncé UNO ! Tu es protégé.";
+  }
+});
+
+btnContre.addEventListener('click', () => {
+  if (unoVulnerablePlayer !== null && unoVulnerablePlayer !== myPlayerId) {
+    // Punition : le joueur vulnérable pioche 2 cartes
+    const vulnerable = players[unoVulnerablePlayer];
+    drawCard(vulnerable, 2);
+    const punishedName = vulnerable.name;
+    unoVulnerablePlayer = null;
+    updateFirebaseState();
+    alert(`Contre UNO réussi ! ${punishedName} a oublié de dire UNO et pioche 2 cartes.`);
+  }
+});
+
+
 // --- GESTION DES SALONS FIREBASE ---
 
 btnCreateRoom.addEventListener('click', () => {
@@ -39,12 +80,7 @@ btnCreateRoom.addEventListener('click', () => {
   const maxPlayers = parseInt(selectMaxPlayers.value);
   let initialPlayers = [];
   for (let i = 0; i < maxPlayers; i++) {
-    initialPlayers.push({ 
-      id: i, 
-      name: `Joueur ${i + 1}`, 
-      hand: [], 
-      joined: (i === 0) // L'hôte rejoint automatiquement
-    });
+    initialPlayers.push({ id: i, name: `Joueur ${i + 1}`, hand: [], joined: (i === 0) });
   }
 
   const initialGameState = {
@@ -54,7 +90,9 @@ btnCreateRoom.addEventListener('click', () => {
     currentColor: 'red',
     deck: [],
     discardPile: [],
-    players: initialPlayers
+    players: initialPlayers,
+    winner: null,
+    unoVulnerablePlayer: null
   };
 
   const { ref, set } = window.firebaseRefs;
@@ -63,17 +101,13 @@ btnCreateRoom.addEventListener('click', () => {
     roomInfo.classList.remove('hidden');
     displayRoomCode.textContent = roomCode;
     elTurnIndicator.textContent = `Salon créé ! En attente des joueurs (1/${maxPlayers})...`;
-    
     listenToRoom();
   });
 });
 
 btnJoinRoom.addEventListener('click', () => {
   const code = roomCodeInput.value.trim().toUpperCase();
-  if (code.length !== 4) {
-    alert("Entre un code de salon valide à 4 lettres.");
-    return;
-  }
+  if (code.length !== 4) return alert("Entre un code à 4 lettres.");
 
   roomCode = code;
   isOnline = true;
@@ -81,27 +115,15 @@ btnJoinRoom.addEventListener('click', () => {
   const { ref, onValue, update } = window.firebaseRefs;
   onValue(ref(window.db, 'rooms/' + roomCode), (snapshot) => {
     const data = snapshot.val();
-    if (!data) {
-      alert("Ce salon n'existe pas !");
-      isOnline = false;
-      return;
-    }
+    if (!data) return alert("Ce salon n'existe pas !");
 
     if (data.status === 'waiting') {
       let assignedId = -1;
       for (let i = 0; i < data.players.length; i++) {
-        if (!data.players[i].joined) {
-          assignedId = i;
-          break;
-        }
+        if (!data.players[i].joined) { assignedId = i; break; }
       }
 
-      if (assignedId === -1) {
-        alert("Le salon est complet !");
-        isOnline = false;
-        return;
-      }
-
+      if (assignedId === -1) return alert("Le salon est complet !");
       myPlayerId = assignedId;
       data.players[myPlayerId].joined = true;
 
@@ -111,11 +133,10 @@ btnJoinRoom.addEventListener('click', () => {
       roomInfo.classList.remove('hidden');
       displayRoomCode.textContent = roomCode;
 
-      const allJoined = data.players.every(p => p.joined);
-      if (allJoined) {
+      if (data.players.every(p => p.joined)) {
         startOnlineGameFromFirebase(data.players);
       } else {
-        elTurnIndicator.textContent = "Connecté ! En attente des autres joueurs...";
+        elTurnIndicator.textContent = "Connecté ! En attente...";
       }
     } else {
       syncGameState(data);
@@ -133,11 +154,10 @@ function listenToRoom() {
       if (data.status === 'waiting') {
         const joinedCount = data.players.filter(p => p.joined).length;
         elTurnIndicator.textContent = `En attente des joueurs (${joinedCount}/${data.players.length})...`;
-        const allJoined = data.players.every(p => p.joined);
-        if (allJoined && myPlayerId === 0) {
+        if (data.players.every(p => p.joined) && myPlayerId === 0) {
           startOnlineGameFromFirebase(data.players);
         }
-      } else if (data.status === 'playing') {
+      } else {
         syncGameState(data);
       }
     }
@@ -145,34 +165,42 @@ function listenToRoom() {
 }
 
 function updateFirebaseState() {
-  // On ne bloque plus la mise à jour si le tour vient de passer à l'adversaire
   if (!isOnline) return;
 
   const { ref, update } = window.firebaseRefs;
   update(ref(window.db, 'rooms/' + roomCode), {
+    status: gameStatus,
     activePlayerIndex: activePlayerIndex,
     playDirection: playDirection,
     currentColor: currentColor,
     deck: deck,
     discardPile: discardPile,
-    players: players
+    players: players,
+    winner: winner,
+    unoVulnerablePlayer: unoVulnerablePlayer
   });
 }
+
 function syncGameState(data) {
+  gameStatus = data.status || 'waiting';
   activePlayerIndex = data.activePlayerIndex;
   playDirection = data.playDirection;
   currentColor = data.currentColor;
   deck = data.deck || [];
   discardPile = data.discardPile || [];
   players = data.players || [];
+  winner = data.winner !== undefined ? data.winner : null;
+  unoVulnerablePlayer = data.unoVulnerablePlayer !== undefined ? data.unoVulnerablePlayer : null;
 
   renderTable();
 
-  const currentPlayer = players[activePlayerIndex];
-  if (activePlayerIndex === myPlayerId) {
-    elTurnIndicator.innerHTML = `<span style="color: #2ecc71;">C'est à TON tour !</span> (Couleur : ${getFrenchColor(currentColor)})`;
-  } else {
-    elTurnIndicator.textContent = `Au tour de ${currentPlayer.name} (Couleur : ${getFrenchColor(currentColor)})`;
+  if (gameStatus === 'playing') {
+    const currentPlayer = players[activePlayerIndex];
+    if (activePlayerIndex === myPlayerId) {
+      elTurnIndicator.innerHTML = `<span style="color: #2ecc71;">C'est à TON tour !</span> (Couleur : ${getFrenchColor(currentColor)})`;
+    } else {
+      elTurnIndicator.textContent = `Au tour de ${currentPlayer.name} (Couleur : ${getFrenchColor(currentColor)})`;
+    }
   }
 }
 
@@ -183,17 +211,14 @@ function createDeck() {
   COLORS.forEach(color => {
     deck.push({ color, value: '0' });
     for (let i = 1; i <= 9; i++) {
-      deck.push({ color, value: i.toString() });
-      deck.push({ color, value: i.toString() });
+      deck.push({ color, value: i.toString() }); deck.push({ color, value: i.toString() });
     }
     ['⊘', '⇄', '+2'].forEach(val => {
-      deck.push({ color, value: val });
-      deck.push({ color, value: val });
+      deck.push({ color, value: val }); deck.push({ color, value: val });
     });
   });
   for (let i = 0; i < 4; i++) {
-    deck.push({ color: 'black', value: '🎨' });
-    deck.push({ color: 'black', value: '+4' });
+    deck.push({ color: 'black', value: '🎨' }); deck.push({ color: 'black', value: '+4' });
   }
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -202,11 +227,8 @@ function createDeck() {
 }
 
 function drawCard(player, count = 1) {
-  // Sécurité Firebase : si le tableau 'hand' a disparu car il était vide, on le recrée
-  if (!player.hand) {
-    player.hand = [];
-  }
-
+  if (!player.hand) player.hand = [];
+  
   for (let i = 0; i < count; i++) {
     if (deck.length === 0) {
       const topDiscard = discardPile.pop();
@@ -217,7 +239,7 @@ function drawCard(player, count = 1) {
     }
     if (deck.length > 0) {
       const newCard = deck.pop();
-      newCard.isNew = true;
+      newCard.isNew = true; // Pour l'animation
       player.hand.push(newCard);
     }
   }
@@ -236,6 +258,9 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   discardPile = [];
   playDirection = 1;
   activePlayerIndex = 0;
+  gameStatus = 'playing';
+  winner = null;
+  unoVulnerablePlayer = null;
 
   players = currentPlayersData;
   players.forEach(p => drawCard(p, 7));
@@ -251,62 +276,73 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   } while (discardPile.length === 0);
 
   currentColor = firstCard.color;
-
-  const { ref, update } = window.firebaseRefs;
-  update(ref(window.db, 'rooms/' + roomCode), {
-    status: 'playing',
-    activePlayerIndex: activePlayerIndex,
-    playDirection: playDirection,
-    currentColor: currentColor,
-    deck: deck,
-    discardPile: discardPile,
-    players: players
-  });
+  updateFirebaseState();
 }
 
 function renderTable() {
+  if (gameStatus === 'finished') {
+    winScreen.innerHTML = `<div>🎉 ${players[winner].name} a gagné ! 🎉</div>`;
+    winScreen.classList.remove('hidden');
+    btnUno.style.display = 'none';
+    btnContre.style.display = 'none';
+    return; // On stoppe le rendu
+  } else {
+    winScreen.classList.add('hidden');
+  }
+
+  // Gestion de l'affichage des boutons UNO
+  if (unoVulnerablePlayer !== null) {
+    if (unoVulnerablePlayer === myPlayerId) {
+      btnUno.style.display = 'block';
+      btnContre.style.display = 'none';
+    } else {
+      btnUno.style.display = 'none';
+      btnContre.style.display = 'block';
+      
+      // Positionnement aléatoire pour "Contre UNO" (entre 20% et 70% de l'écran)
+      if (btnContre.dataset.active !== "true") {
+        btnContre.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
+        btnContre.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
+        btnContre.dataset.active = "true";
+      }
+    }
+  } else {
+    btnUno.style.display = 'none';
+    btnContre.style.display = 'none';
+    btnContre.dataset.active = "false";
+  }
+
   if (discardPile.length === 0) return;
   const topCard = discardPile[discardPile.length - 1];
   
-  // Défausse
+  // Défausse avec animation
   elDiscardPile.innerHTML = '';
   const cardEl = document.createElement('div');
-  cardEl.className = `card ${currentColor === 'black' ? topCard.color : currentColor}`;
+  cardEl.className = `card ${currentColor === 'black' ? topCard.color : currentColor} anim-play`;
   cardEl.innerHTML = `<span>${topCard.value}</span>`;
   elDiscardPile.appendChild(cardEl);
 
-  // Adversaires (Répartition dynamique autour de la table)
+  // Adversaires
   elOpponents.innerHTML = '';
   players.forEach((p, index) => {
     if (index !== myPlayerId) {
       const oppZone = document.createElement('div');
-      
-      const diff = (index - myPlayerId + players.length) % players.length;
-      let posClass = 'pos-top';
-      
-      if (players.length === 3) {
-        if (diff === 1) posClass = 'pos-left';
-        if (diff === 2) posClass = 'pos-right';
-      } else if (players.length >= 4) {
-        if (diff === 1) posClass = 'pos-left';
-        if (diff === Math.floor(players.length / 2)) posClass = 'pos-top';
-        if (diff > Math.floor(players.length / 2)) posClass = 'pos-right';
-      }
-
-      oppZone.className = `opponent-zone ${posClass}`;
+      oppZone.className = `opponent-zone pos-top`; // Simplifié pour l'exemple
       
       const nameEl = document.createElement('div');
       nameEl.className = 'opponent-name';
-      nameEl.textContent = `${p.name} (${p.hand.length})`;
+      nameEl.textContent = `${p.name} (${p.hand ? p.hand.length : 0})`;
       
       const handEl = document.createElement('div');
       handEl.className = 'opponent-hand';
       
-      p.hand.forEach(() => {
-        const cEl = document.createElement('div');
-        cEl.className = 'card back';
-        handEl.appendChild(cEl);
-      });
+      if (p.hand) {
+        p.hand.forEach(() => {
+          const cEl = document.createElement('div');
+          cEl.className = 'card back';
+          handEl.appendChild(cEl);
+        });
+      }
       
       oppZone.appendChild(nameEl);
       oppZone.appendChild(handEl);
@@ -316,7 +352,7 @@ function renderTable() {
 
   // Main du joueur
   const myPlayer = players[myPlayerId];
-  if (!myPlayer) return;
+  if (!myPlayer || !myPlayer.hand) return;
 
   elActivePlayerName.textContent = `${myPlayer.name} (Toi)`;
   elActiveHand.innerHTML = '';
@@ -327,6 +363,11 @@ function renderTable() {
     const playable = isMyTurn && isPlayable(card);
     
     cEl.className = `card ${card.color} ${!playable ? 'unplayable' : ''}`;
+    if (card.isNew) {
+      cEl.classList.add('anim-draw');
+      card.isNew = false;
+    }
+    
     cEl.innerHTML = `<span>${card.value}</span>`;
     
     cEl.addEventListener('click', () => {
@@ -343,7 +384,11 @@ elDrawPile.addEventListener('click', () => {
 
   const currentPlayer = players[myPlayerId];
   drawCard(currentPlayer, 1);
-  renderTable();
+  
+  // Si on pioche, on n'est plus vulnérable au contre-uno
+  if (unoVulnerablePlayer === myPlayerId) {
+    unoVulnerablePlayer = null;
+  }
 
   activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
   updateFirebaseState();
@@ -354,11 +399,19 @@ function playCard(cardIndex) {
   const card = currentPlayer.hand.splice(cardIndex, 1)[0];
   discardPile.push(card);
   currentColor = card.color;
-  renderTable();
 
+  // GESTION DU "UNO !"
+  if (currentPlayer.hand.length === 1) {
+    unoVulnerablePlayer = myPlayerId; // Le joueur n'a plus qu'une carte, il est vulnérable !
+  } else if (unoVulnerablePlayer === myPlayerId) {
+    unoVulnerablePlayer = null;
+  }
+
+  // GESTION DE LA VICTOIRE (CORRIGÉ !)
   if (currentPlayer.hand.length === 0) {
-    elTurnIndicator.textContent = `🎉 ${currentPlayer.name} a gagné la partie ! 🎉`;
-    elActiveHand.innerHTML = '';
+    gameStatus = 'finished';
+    winner = myPlayerId;
+    updateFirebaseState(); // Firebase est prévenu avant de s'arrêter !
     return;
   }
 
@@ -374,7 +427,6 @@ document.querySelectorAll('.color-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     currentColor = e.target.getAttribute('data-color');
     colorPickerOverlay.classList.add('hidden');
-    renderTable();
     applySpecialEffects(window.pendingCardValue);
   });
 });
