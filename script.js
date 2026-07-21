@@ -425,34 +425,52 @@ function renderTable() {
   });
 }
 
-// Fonction d'Animation
+// Fonction d'Animation (100% gérée en JS, sans CSS !)
 function animateCardFlight(fromElement, toElement, cardData, onComplete) {
   if (!fromElement || !toElement) {
     if (onComplete) onComplete();
     return;
   }
 
+  // On calcule les coordonnées de départ et d'arrivée
   const startRect = fromElement.getBoundingClientRect();
   const endRect = toElement.getBoundingClientRect();
 
   const dx = startRect.left - endRect.left;
   const dy = startRect.top - endRect.top;
 
+  // On crée la carte volante
   const flyer = document.createElement('div');
-  flyer.className = `card ${cardData.color === 'black' ? 'black' : cardData.color} flying-card`;
-  flyer.innerHTML = `<span>${cardData.value}</span>`;
+  flyer.className = `card ${cardData.color === 'black' ? 'black' : cardData.color}`;
+  if (cardData.color === 'back') {
+    flyer.className = 'card back'; // Pour l'animation de la pioche
+  }
+  flyer.innerHTML = cardData.value ? `<span>${cardData.value}</span>` : '';
   
-  flyer.style.setProperty('--start-x', `${dx}px`);
-  flyer.style.setProperty('--start-y', `${dy}px`);
+  // On la place par-dessus tout le reste
+  flyer.style.position = 'fixed';
   flyer.style.left = `${endRect.left}px`;
   flyer.style.top = `${endRect.top}px`;
+  flyer.style.zIndex = '9999';
+  flyer.style.pointerEvents = 'none'; // Pour ne pas bloquer les clics
+  flyer.style.margin = '0';
 
   document.body.appendChild(flyer);
 
-  flyer.addEventListener('animationend', () => {
+  // On lance l'animation native du navigateur (Web Animations API)
+  const animation = flyer.animate([
+    { transform: `translate(${dx}px, ${dy}px) scale(1)` }, // Point de départ
+    { transform: `translate(0px, 0px) scale(1)` }          // Point d'arrivée
+  ], {
+    duration: 400, // 400 millisecondes
+    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' // Courbe de vitesse fluide
+  });
+
+  // Quand l'animation est finie, on détruit la fausse carte et on valide le coup
+  animation.onfinish = () => {
     flyer.remove();
     if (onComplete) onComplete();
-  });
+  };
 }
 
 elDrawPile.addEventListener('click', () => {
