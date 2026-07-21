@@ -1,144 +1,221 @@
-/* --- STYLES GENERAUX --- */
-body {
-  margin: 0;
-  font-family: 'Arial', sans-serif;
-  background-color: #2c3e50;
-  color: white;
-  overflow: hidden;
+:root {
+  --card-w: 80px;
+  --card-h: 120px;
+  --red: #ff5555;
+  --blue: #5555ff;
+  --green: #55aa55;
+  --yellow: #ffaa00;
+  --black: #333333;
 }
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+body { background-color: #2c3e50; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+
+.game-container { width: 100%; max-width: 1200px; display: flex; flex-direction: column; gap: 15px; padding: 10px; }
+
+.game-header { background: #1a252f; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 50; }
+.game-header h1 { color: #f1c40f; letter-spacing: 2px; }
+.game-settings { display: flex; gap: 15px; align-items: center; }
+.game-settings select, .game-settings input { padding: 6px; border-radius: 6px; border: none; background: #ecf0f1; color: #333; font-weight: bold; }
 
 .hidden { display: none !important; }
-
-/* --- HEADER ET LOBBY --- */
-.game-header {
-  background-color: #1a252f;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}
-
-.game-header h1 {
-  margin: 0 0 15px 0;
-  color: #f1c40f;
-  text-align: center;
-}
-
-.btn {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-}
+.btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
 .btn-start { background-color: #e74c3c; color: white; }
-.btn-secondary { background-color: #3498db; color: white; }
 
-.turn-indicator {
-  background-color: rgba(0, 0, 0, 0.7);
-  padding: 10px 20px;
-  border-radius: 20px;
-  text-align: center;
-  font-weight: bold;
-  margin-top: 20px;
-  position: relative;
-  z-index: 10;
+/* --- NOUVEAU : La table globale --- */
+.uno-table { 
+  background: radial-gradient(circle, #34495e 0%, #2c3e50 100%); 
+  border-radius: 30px; 
+  border: 8px solid #bdc3c7; 
+  min-height: 80vh; 
+  position: relative; /* Permet le placement libre des éléments à l'intérieur */
+  overflow: hidden;
+  box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
 }
 
-/* --- LA TABLE ET LES CARTES --- */
-.uno-table {
-  position: relative;
-  height: calc(100vh - 180px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+/* Zone Centrale (Pioche et Défausse) */
+.center-table { 
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; 
+  gap: 30px; 
+  align-items: center; 
+  z-index: 5; 
 }
 
-.center-table {
-  display: flex;
-  gap: 30px;
-  margin-bottom: 20px;
-  position: relative;
+.draw-pile { width: var(--card-w); height: var(--card-h); background: #111; border: 4px solid white; border-radius: 10px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: -2px 2px 10px rgba(0,0,0,0.5); transition: 0.2s; }
+.draw-pile:hover { transform: translateY(-5px); box-shadow: -2px 7px 15px rgba(0,0,0,0.6); }
+.uno-logo-back { color: #e74c3c; font-weight: 900; font-size: 1.5rem; transform: rotate(-20deg); text-shadow: 2px 2px 0px white; }
+
+/* Indicateur de tour (Placé juste au-dessus du centre) */
+.turn-indicator { 
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center; 
+  font-size: 1.2rem; 
+  font-weight: bold; 
+  padding: 10px 20px; 
+  background: rgba(0,0,0,0.75); 
+  border-radius: 10px; 
+  z-index: 10; 
+  white-space: nowrap;
+}
+
+/* --- NOUVEAU : Positionnement des Adversaires --- */
+.opponents-container { 
+  position: absolute; 
+  top: 0; left: 0; width: 100%; height: 100%; 
+  pointer-events: none; /* Laisse passer les clics vers le centre */
   z-index: 5;
 }
 
-.card {
-  width: 80px;
-  height: 120px;
-  border-radius: 10px;
-  border: 5px solid white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 32px;
-  font-weight: bold;
-  color: white;
-  box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-  background-color: white;
-  user-select: none;
+.opponent-zone { 
+  position: absolute;
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 5px; 
 }
 
-.card span {
-  background: rgba(0,0,0,0.2);
-  border-radius: 50%;
-  padding: 10px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
+.pos-top { top: 20px; left: 50%; transform: translateX(-50%); }
+.pos-left { top: 50%; left: 20px; transform: translateY(-50%); }
+.pos-right { top: 50%; right: 20px; transform: translateY(-50%); }
 
-.red { background-color: #e74c3c; }
-.blue { background-color: #3498db; }
-.green { background-color: #2ecc71; }
-.yellow { background-color: #f1c40f; color: black; }
-.black { background-color: #2c3e50; }
-.back { background-color: #111; border-color: white; }
-.unplayable { opacity: 0.5; cursor: not-allowed !important; }
+.opponent-name { background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 0.95rem; border: 1px solid #444; }
+.opponent-hand { display: flex; gap: -35px; justify-content: center; transform: scale(0.5); }
 
-.draw-pile .uno-logo-back {
-  color: #e74c3c;
-  font-size: 24px;
-  font-weight: bold;
-  transform: rotate(-20deg);
-}
-.draw-pile { cursor: pointer; transition: transform 0.1s; }
-.draw-pile:active { transform: scale(0.95); }
-
-.active-player-zone {
+/* Main du joueur actif (Placée en bas) */
+.active-player-zone { 
   position: absolute;
   bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 10px; 
+  z-index: 15; 
   width: 100%;
+}
+.hand-container { display: flex; gap: -30px; justify-content: center; max-width: 90%; flex-wrap: wrap; }
+
+/* Style des Cartes */
+.card { width: var(--card-w); height: var(--card-h); border-radius: 10px; border: 4px solid white; display: flex; justify-content: center; align-items: center; position: relative; font-weight: 900; font-size: 2rem; cursor: pointer; box-shadow: 2px 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s; margin-left: -20px; }
+.card:first-child { margin-left: 0; }
+.card.unplayable { filter: brightness(0.4); cursor: not-allowed; }
+.card.unplayable:hover { transform: none; }
+
+.card:not(.back)::before { content: ''; position: absolute; width: 80%; height: 60%; background: white; border-radius: 50%; transform: rotate(-25deg); z-index: 0; }
+.card span { position: relative; z-index: 1; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+
+.card.red { background-color: var(--red); color: var(--red); }
+.card.blue { background-color: var(--blue); color: var(--blue); }
+.card.green { background-color: var(--green); color: var(--green); }
+.card.yellow { background-color: var(--yellow); color: var(--yellow); }
+.card.black { background-color: var(--black); color: white; }
+.card.black:not(.back)::before { background: linear-gradient(45deg, var(--red) 25%, var(--blue) 25%, var(--blue) 50%, var(--green) 50%, var(--green) 75%, var(--yellow) 75%); }
+.card.black span { color: white; text-shadow: none; }
+
+/* Dos de carte */
+.card.back { background-color: #111; cursor: default; }
+.card.back:hover { transform: none; }
+.card.back::before { content: 'UNO'; background: none; width: auto; height: auto; border-radius: 0; color: #e74c3c; font-weight: 900; font-size: 1.8rem; transform: rotate(-20deg); text-shadow: 2px 2px 0px white; }
+.card.back span { display: none; }
+
+/* Animation de vol depuis le centre dynamique */
+@keyframes flyFromCenter {
+  0% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.3); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+/* Effet au survol uniquement pour le joueur actif */
+.active-player-zone .card:not(.unplayable):hover { transform: translateY(-15px); z-index: 20; }
+
+/* Overlays */
+.overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 100; }
+.overlay-card { background: #ecf0f1; color: #2c3e50; padding: 30px; border-radius: 15px; text-align: center; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+.color-buttons { display: flex; gap: 15px; justify-content: center; }
+.color-btn { width: 60px; height: 60px; border-radius: 50%; border: 4px solid white; cursor: pointer; transition: 0.2s; }
+.color-btn:hover { transform: scale(1.1); }
+.color-btn.red { background: var(--red); }
+.color-btn.blue { background: var(--blue); }
+.color-btn.green { background: var(--green); }
+.color-btn.yellow { background: var(--yellow); }
+
+/* --- ANIMATIONS DES CARTES --- */
+@keyframes playCardAnim {
+  0% { transform: scale(1.5) translateY(50px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.anim-play {
+  animation: playCardAnim 0.3s ease-out;
+}
+
+@keyframes drawCardAnim {
+  0% { transform: translateX(50px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.anim-draw {
+  animation: drawCardAnim 0.3s ease-out;
+}
+
+/* --- BOUTONS UNO & CONTRE UNO --- */
+.uno-btn, .contre-uno-btn {
+  position: fixed;
+  z-index: 1000;
+  padding: 15px 30px;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  display: none; /* Caché par défaut */
+  transition: transform 0.1s;
+}
+.uno-btn:active, .contre-uno-btn:active {
+  transform: scale(0.95);
+}
+
+.uno-btn {
+  background-color: #e74c3c;
+  bottom: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.contre-uno-btn {
+  background-color: #f1c40f;
+  color: #000;
+  /* La position sera générée aléatoirement en JS */
+}
+
+/* --- ÉCRAN DE VICTOIRE --- */
+.win-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.85);
+  color: #f1c40f;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  z-index: 10;
+  font-size: 50px;
+  text-shadow: 0 0 20px #f1c40f;
+  z-index: 2000;
 }
-
-#active-player-name {
-  margin: 0 0 10px 0;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-}
-
-.hand-container {
-  display: flex;
-  gap: 5px;
-}
-.hand-container .card {
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-.hand-container .card:hover:not(.unplayable) {
-  transform: translateY(-15px);
-}
-
-/* --- ADVERSAIRES AUTOUR DE LA TABLE --- */
+/* --- POSITIONS DES ADVERSAIRES AUTOUR DE LA TABLE --- */
 .opponents-container {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none;
+  pointer-events: none; /* Empêche les zones de bloquer les clics au centre */
 }
 
 .opponent-zone {
@@ -146,7 +223,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: scale(0.7);
+  transform: scale(0.7); /* On réduit un peu la taille des cartes adverses */
 }
 
 .opponent-name {
@@ -162,95 +239,111 @@ body {
 
 .opponent-hand {
   display: flex;
+  flex-direction: row;
   justify-content: center;
 }
+
+/* Chevauchement des cartes pour gagner de la place */
 .opponent-hand .card {
   margin-left: -45px; 
   box-shadow: -2px 0 5px rgba(0,0,0,0.3);
 }
-.opponent-hand .card:first-child { margin-left: 0; }
+.opponent-hand .card:first-child {
+  margin-left: 0;
+}
 
+/* Les 5 positions possibles pour les adversaires */
 .pos-top { top: 5%; left: 50%; transform: translateX(-50%) scale(0.7); }
 .pos-left { top: 40%; left: -30px; transform: translateY(-50%) scale(0.7); }
 .pos-right { top: 40%; right: -30px; transform: translateY(-50%) scale(0.7); }
 .pos-top-left { top: 15%; left: 10%; transform: scale(0.7); }
 .pos-top-right { top: 15%; right: 10%; transform: scale(0.7); }
+/* ========================================================= */
+/* --- RESPONSIVITÉ POUR SMARTPHONE (Écrans < 768px) --- */
+/* ========================================================= */
 
-/* --- BOUTONS UNO & ECRAN VICTOIRE --- */
-.uno-btn, .contre-uno-btn {
-  position: fixed;
-  z-index: 1000;
-  padding: 15px 30px;
-  font-size: 24px;
-  font-weight: bold;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-  display: none;
-  transition: transform 0.1s;
-}
-.uno-btn:active, .contre-uno-btn:active { transform: scale(0.95); }
-.uno-btn { background-color: #e74c3c; bottom: 25%; left: 50%; transform: translateX(-50%); }
-.contre-uno-btn { background-color: #f1c40f; color: #000; }
+@media (max-width: 768px) {
+  /* Réduire la taille de l'en-tête et empiler le menu */
+  .game-header h1 {
+    font-size: 22px;
+    margin: 5px 0;
+  }
+  
+  #lobby-controls {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  #join-section {
+    width: 100%;
+    justify-content: center;
+  }
 
-.win-overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.85);
-  color: #f1c40f;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  font-size: 50px;
-  text-shadow: 0 0 20px #f1c40f;
-  z-index: 2000;
-}
+  /* Réduire la taille des cartes pour qu'elles tiennent sur l'écran */
+  .card {
+    width: 50px;
+    height: 75px;
+    font-size: 20px;
+    border-width: 3px;
+    border-radius: 6px;
+  }
 
-/* --- OVERLAY CHOIX COULEUR --- */
-.overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 3000;
-}
-.overlay-card {
-  background: #34495e;
-  padding: 30px;
-  border-radius: 15px;
-  text-align: center;
-}
-.color-buttons {
-  display: flex;
-  gap: 15px;
-  margin-top: 20px;
-  justify-content: center;
-}
-.color-btn {
-  width: 80px; height: 80px;
-  border-radius: 10px;
-  border: 3px solid white;
-  cursor: pointer;
-}
+  .uno-logo-back {
+    font-size: 14px;
+  }
 
-/* --- ANIMATIONS AMELIOREES (Trajectoires réalistes) --- */
-@keyframes playCardAnim {
-  0% { transform: translateY(180px) scale(0.8); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.anim-play {
-  animation: playCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
+  /* Ajuster le centre de la table (Pioche / Défausse) */
+  .center-table {
+    transform: scale(0.85);
+  }
 
-@keyframes drawCardAnim {
-  0% { transform: translateY(-150px) scale(0.5); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
-}
-.anim-draw {
-  animation: drawCardAnim 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Rendre la main du joueur "scrollable" s'il a beaucoup de cartes */
+  .active-player-zone {
+    width: 100vw;
+    bottom: 5px;
+
+  }
+
+  .hand-container {
+    display: flex;
+    overflow-x: auto; /* Permet de glisser avec le doigt de gauche à droite */
+    padding: 10px;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch; /* Défilement fluide sur iOS */
+
+  }
+
+  .hand-container .card {
+    flex-shrink: 0;
+    margin-left: -20px; /* Chevauchement plus prononcé */
+  }
+  .hand-container .card:first-child {
+    margin-left: 0;
+  }
+
+  /* Rétrécir encore plus les adversaires et ajuster leurs positions */
+  .opponent-zone {
+    transform: scale(0.5); /* Moitié de la taille normale */
+  }
+  .pos-top { top: 5%; }
+  .pos-left { left: -45px; }
+  .pos-right { right: -45px; }
+  .pos-top-left { top: 8%; left: -20px; }
+  .pos-top-right { top: 8%; right: -20px; }
+
+  /* Adapter l'écran de couleur et les boutons UNO */
+  .overlay-card {
+    width: 90%;
+    padding: 15px;
+  }
+  .color-buttons button {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .uno-btn, .contre-uno-btn {
+    padding: 10px 20px;
+    font-size: 18px;
+  }
 }
