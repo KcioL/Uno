@@ -145,7 +145,8 @@ function listenToRoom() {
 }
 
 function updateFirebaseState() {
-  if (!isOnline || myPlayerId !== activePlayerIndex) return;
+  // On ne bloque plus la mise à jour si le tour vient de passer à l'adversaire
+  if (!isOnline) return;
 
   const { ref, update } = window.firebaseRefs;
   update(ref(window.db, 'rooms/' + roomCode), {
@@ -157,7 +158,6 @@ function updateFirebaseState() {
     players: players
   });
 }
-
 function syncGameState(data) {
   activePlayerIndex = data.activePlayerIndex;
   playDirection = data.playDirection;
