@@ -201,6 +201,30 @@ function updateFirebaseState() {
 }
 
 function syncGameState(data) {
+  // 1. Détection des changements AVANT de mettre à jour le jeu
+  const oldDiscardLength = discardPile.length;
+  const newDiscardLength = data.discardPile ? data.discardPile.length : 0;
+  
+  let opponentWhoPlayed = -1;
+  let cardPlayedByOpponent = null;
+  let opponentWhoDrew = -1;
+  let cardsDrawn = 0;
+
+  // On compare les cartes pour savoir qui a joué ou pioché
+  for (let i = 0; i < data.players.length; i++) {
+    const oldHandSize = (players[i] && players[i].hand) ? players[i].hand.length : 0;
+    const newHandSize = (data.players[i] && data.players[i].hand) ? data.players[i].hand.length : 0;
+    
+    if (newHandSize < oldHandSize && i !== myPlayerId) {
+      opponentWhoPlayed = i;
+      cardPlayedByOpponent = data.discardPile[data.discardPile.length - 1];
+    } else if (newHandSize > oldHandSize && i !== myPlayerId) {
+      opponentWhoDrew = i;
+      cardsDrawn = newHandSize - oldHandSize;
+    }
+  }
+
+  // 2. Mise à jour des variables de jeu
   gameStatus = data.status || 'waiting';
   activePlayerIndex = data.activePlayerIndex;
   playDirection = data.playDirection;
@@ -212,13 +236,43 @@ function syncGameState(data) {
   unoVulnerablePlayer = data.unoVulnerablePlayer !== undefined ? data.unoVulnerablePlayer : null;
   drawPenalty = data.drawPenalty || 0;
 
+  // 3. On affiche la table mise à jour
   renderTable();
 
+  // 4. ANIMATION : Si un adversaire a JOUÉ une carte
+  if (opponentWhoPlayed !== -1 && cardPlayedByOpponent) {
+    const fromEl = document.getElementById(`opponent-zone-${opponentWhoPlayed}`);
+    const toEl = document.getElementById('discard-pile');
+    if (fromEl && toEl) {
+      // On cache la carte posée le temps que l'animation de vol se fasse
+      const topCardEl = toEl.lastChild;
+      if (topCardEl) topCardEl.style.opacity = '0'; 
+
+      animateCardFlight(fromEl, toEl, cardPlayedByOpponent, () => {
+        if (topCardEl) topCardEl.style.opacity = '1'; // On la fait réapparaître
+      });
+    }
+  }
+
+  // 5. ANIMATION : Si un adversaire a PIOCHÉ des cartes
+  if (opponentWhoDrew !== -1) {
+    const toEl = document.getElementById(`opponent-zone-${opponentWhoDrew}`);
+    const fromEl = document.getElementById('draw-pile');
+    if (fromEl && toEl) {
+      // S'il pioche plusieurs cartes (ex: +2, +4), on les anime une par une
+      for(let k = 0; k < cardsDrawn; k++) {
+        setTimeout(() => {
+          animateCardFlight(fromEl, toEl, {color: 'back', value: ''});
+        }, k * 150); // Décalage de 150ms entre chaque carte
+      }
+    }
+  }
+
+  // 6. Mise à jour du texte du tour
   if (gameStatus === 'playing') {
     const currentPlayer = players[activePlayerIndex];
-    
-    // Texte dynamique selon la carte qui a initié la pénalité
     let penText = '';
+    
     if (drawPenalty > 0 && discardPile.length > 0) {
       const topCard = discardPile[discardPile.length - 1];
       const typeRequis = topCard.value === '+4' ? '+4' : '+2';
@@ -375,14 +429,14 @@ function renderTable() {
   else if (numOpponents === 4) positions = ['pos-left', 'pos-top-left', 'pos-top-right', 'pos-right'];
   else if (numOpponents === 5) positions = ['pos-left', 'pos-top-left', 'pos-top', 'pos-top-right', 'pos-right'];
 
-  for (let i = 1; i <= numOpponents; i++) {
+for (let i = 1; i <= numOpponents; i++) {
     const oppIndex = (myPlayerId + i) % players.length;
     const p = players[oppIndex];
     const posClass = positions[i - 1];
 
     const oppZone = document.createElement('div');
     oppZone.className = `opponent-zone ${posClass}`;
-    
+    oppZone.id = `opponent-zone-${oppIndex}`;     
     const nameEl = document.createElement('div');
     nameEl.className = 'opponent-name';
     
