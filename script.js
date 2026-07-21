@@ -76,7 +76,13 @@ btnContre.addEventListener('click', () => {
 });
 
 document.getElementById('btn-replay').addEventListener('click', () => {
-  startOnlineGameFromFirebase(players);
+  if (myPlayerId === 0) {
+    // Seul l'hôte génère la nouvelle partie et tire au sort !
+    startOnlineGameFromFirebase(players);
+  } else {
+    alert("Seul l'hôte (Joueur 1) peut relancer la partie !");
+    elTurnIndicator.textContent = "En attente de l'hôte pour rejouer...";
+  }
 });
 
 // Salons Firebase
@@ -150,9 +156,8 @@ btnJoinRoom.addEventListener('click', () => {
       lobbyControls.classList.add('hidden');
       roomInfo.classList.remove('hidden');
       displayRoomCode.textContent = roomCode;
-
       if (data.players.every(p => p.joined)) {
-        startOnlineGameFromFirebase(data.players);
+        elTurnIndicator.textContent = "Connecté ! L'hôte lance la partie...";
       } else {
         elTurnIndicator.textContent = "Connecté ! En attente...";
       }
