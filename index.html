@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UNO En Ligne</title>
-  <link rel="stylesheet" href="style.css">
+  <!-- Le ?v=2 force le téléphone à vider son cache et télécharger le nouveau design -->
+  <link rel="stylesheet" href="style.css?v=2">
 
   <!-- SDK Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    // Configuration Firebase avec l'URL de la base de données en région europe-west1
     const firebaseConfig = {
       apiKey: "AIzaSyCxlp7cztNKLDcQ54IjM3UiYTT6DUimLzw",
       authDomain: "uno-multi-5a1a0.firebaseapp.com",
@@ -35,11 +35,11 @@
     <header class="game-header">
       <h1>UNO En Ligne</h1>
       
-      <!-- Menu de salon en ligne avec sélecteur du nombre de joueurs et pseudo -->
+      <!-- Menu de salon en ligne nettoyé (sans style en ligne) -->
       <div class="game-settings" id="lobby-controls">
-        <input type="text" id="player-name-input" placeholder="Ton pseudo" style="padding: 6px; border-radius: 6px; border: none; font-weight: bold; width: 120px; text-align: center;">
+        <input type="text" id="player-name-input" placeholder="Ton pseudo" class="lobby-input">
         
-        <select id="select-max-players" style="padding: 6px; border-radius: 6px; font-weight: bold; background: #ecf0f1; border: none;">
+        <select id="select-max-players" class="lobby-select">
           <option value="2">2 Joueurs</option>
           <option value="3">3 Joueurs</option>
           <option value="4">4 Joueurs</option>
@@ -47,12 +47,13 @@
           <option value="6">6 Joueurs</option>
         </select>
         <button id="btn-create-room" class="btn btn-start">Créer un salon</button>
-        <div id="join-section" style="display: flex; gap: 8px;">
-          <input type="text" id="room-code-input" placeholder="Code salon" style="text-transform: uppercase; width: 90px; padding: 6px; border-radius: 6px; border: none;">
-          <button id="btn-join-room" class="btn btn-secondary" style="background-color: #3498db; color: white;">Rejoindre</button>
+        
+        <div id="join-section">
+          <input type="text" id="room-code-input" placeholder="Code salon" class="lobby-input code-input">
+          <button id="btn-join-room" class="btn btn-secondary">Rejoindre</button>
         </div>
       </div>
-      <div id="room-info" class="hidden" style="color: #f1c40f; font-weight: bold;">
+      <div id="room-info" class="hidden room-display">
         Salon : <span id="display-room-code"></span>
       </div>
     </header>
