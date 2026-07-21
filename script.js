@@ -8,16 +8,14 @@ let activePlayerIndex = 0;
 let playDirection = 1;
 let currentColor = '';
 
-// Verrou d'animation
-let actionLocked = false; 
-
-// États multijoueur
+// Nouveaux états
 let roomCode = '';
 let myPlayerId = 0;
 let isOnline = false;
 let gameStatus = 'waiting';
 let winner = null;
 let unoVulnerablePlayer = null; 
+let actionLocked = false; // Le fameux verrou d'animation !
 
 // DOM Elements
 const playerNameInput = document.getElementById('player-name-input');
@@ -37,7 +35,7 @@ const elActivePlayerName = document.getElementById('active-player-name');
 const elTurnIndicator = document.getElementById('turn-indicator');
 const colorPickerOverlay = document.getElementById('color-picker-overlay');
 
-// Création des écrans dynamiques
+// Écrans dynamiques
 const btnUno = document.createElement('button');
 btnUno.className = 'uno-btn';
 btnUno.textContent = 'UNO !';
@@ -59,7 +57,7 @@ document.body.appendChild(winScreen);
 // Boutons UNO & Rejouer
 btnUno.addEventListener('click', () => {
   if (unoVulnerablePlayer === myPlayerId) {
-    unoVulnerablePlayer = null; 
+    unoVulnerablePlayer = null;
     updateFirebaseState();
     elTurnIndicator.textContent = "Tu as annoncé UNO ! Tu es protégé.";
   }
@@ -80,7 +78,7 @@ document.getElementById('btn-replay').addEventListener('click', () => {
   startOnlineGameFromFirebase(players);
 });
 
-// Système de Salon Firebase
+// Salons Firebase
 btnCreateRoom.addEventListener('click', () => {
   roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
   myPlayerId = 0;
@@ -184,6 +182,7 @@ function listenToRoom() {
 
 function updateFirebaseState() {
   if (!isOnline) return;
+
   const { ref, update } = window.firebaseRefs;
   update(ref(window.db, 'rooms/' + roomCode), {
     status: gameStatus,
@@ -221,7 +220,7 @@ function syncGameState(data) {
   }
 }
 
-// Logique du jeu
+// Logique de Jeu UNO
 function createDeck() {
   deck = [];
   COLORS.forEach(color => {
@@ -280,7 +279,7 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   actionLocked = false;
 
   players = currentPlayersData;
-  players.forEach(p => { p.hand = []; }); // Vide les mains
+  players.forEach(p => { p.hand = []; });
   players.forEach(p => drawCard(p, 7));
 
   let firstCard;
@@ -308,7 +307,6 @@ function renderTable() {
     winScreen.classList.add('hidden');
   }
 
-  // Affichage UNO aléatoire
   if (unoVulnerablePlayer !== null) {
     if (unoVulnerablePlayer === myPlayerId) {
       btnUno.style.display = 'block';
@@ -413,8 +411,8 @@ function renderTable() {
   });
 }
 
-// Action : Piocher avec délai d'animation
 elDrawPile.addEventListener('click', () => {
+  // AJOUT DE LA SECURITE D'ANIMATION ICI
   if (!isOnline || activePlayerIndex !== myPlayerId || actionLocked) return;
 
   actionLocked = true;
@@ -428,13 +426,14 @@ elDrawPile.addEventListener('click', () => {
   activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
   updateFirebaseState();
 
+  // On déverrouille après 400ms
   setTimeout(() => {
     actionLocked = false;
   }, 400);
 });
 
-// Action : Jouer une carte avec délai d'animation
 function playCard(cardIndex) {
+  // AJOUT DE LA SECURITE D'ANIMATION ICI
   if (actionLocked) return;
   actionLocked = true;
 
@@ -457,6 +456,7 @@ function playCard(cardIndex) {
     return;
   }
 
+  // On déverrouille et déclenche l'effet de carte après 400ms
   setTimeout(() => {
     actionLocked = false;
     if (card.color === 'black') {
