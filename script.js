@@ -8,13 +8,16 @@ let activePlayerIndex = 0;
 let playDirection = 1;
 let currentColor = '';
 
-// Nouveaux états pour le multijoueur
+// Verrou d'animation
+let actionLocked = false; 
+
+// États multijoueur
 let roomCode = '';
 let myPlayerId = 0;
 let isOnline = false;
-let gameStatus = 'waiting'; // 'waiting', 'playing', 'finished'
+let gameStatus = 'waiting';
 let winner = null;
-let unoVulnerablePlayer = null; // ID du joueur à qui il reste 1 carte
+let unoVulnerablePlayer = null; 
 
 // DOM Elements
 const playerNameInput = document.getElementById('player-name-input');
@@ -34,7 +37,7 @@ const elActivePlayerName = document.getElementById('active-player-name');
 const elTurnIndicator = document.getElementById('turn-indicator');
 const colorPickerOverlay = document.getElementById('color-picker-overlay');
 
-// --- CREATION DYNAMIQUE DES ELEMENTS UNO & VICTOIRE ---
+// Création des écrans dynamiques
 const btnUno = document.createElement('button');
 btnUno.className = 'uno-btn';
 btnUno.textContent = 'UNO !';
@@ -45,7 +48,6 @@ btnContre.className = 'contre-uno-btn';
 btnContre.textContent = 'Contre UNO !';
 document.body.appendChild(btnContre);
 
-// Modification : Ajout du bouton Rejouer sur l'écran de victoire
 const winScreen = document.createElement('div');
 winScreen.className = 'win-overlay hidden';
 winScreen.innerHTML = `
@@ -54,10 +56,10 @@ winScreen.innerHTML = `
 `;
 document.body.appendChild(winScreen);
 
-// --- LOGIQUE DES BOUTONS UNO ET REJOUER ---
+// Boutons UNO & Rejouer
 btnUno.addEventListener('click', () => {
   if (unoVulnerablePlayer === myPlayerId) {
-    unoVulnerablePlayer = null; // Protégé !
+    unoVulnerablePlayer = null; 
     updateFirebaseState();
     elTurnIndicator.textContent = "Tu as annoncé UNO ! Tu es protégé.";
   }
@@ -75,12 +77,10 @@ btnContre.addEventListener('click', () => {
 });
 
 document.getElementById('btn-replay').addEventListener('click', () => {
-  // N'importe quel joueur peut cliquer pour relancer la partie avec le même salon
   startOnlineGameFromFirebase(players);
 });
 
-
-// --- GESTION DES SALONS FIREBASE ---
+// Système de Salon Firebase
 btnCreateRoom.addEventListener('click', () => {
   roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
   myPlayerId = 0;
@@ -184,7 +184,6 @@ function listenToRoom() {
 
 function updateFirebaseState() {
   if (!isOnline) return;
-
   const { ref, update } = window.firebaseRefs;
   update(ref(window.db, 'rooms/' + roomCode), {
     status: gameStatus,
@@ -222,7 +221,7 @@ function syncGameState(data) {
   }
 }
 
-// --- LOGIQUE DU JEU UNO ---
+// Logique du jeu
 function createDeck() {
   deck = [];
   COLORS.forEach(color => {
@@ -278,12 +277,10 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   gameStatus = 'playing';
   winner = null;
   unoVulnerablePlayer = null;
+  actionLocked = false;
 
   players = currentPlayersData;
-  
-  // NOUVEAU : On s'assure de vider les mains de tout le monde avant de relancer
-  players.forEach(p => { p.hand = []; });
-  
+  players.forEach(p => { p.hand = []; }); // Vide les mains
   players.forEach(p => drawCard(p, 7));
 
   let firstCard;
@@ -311,6 +308,7 @@ function renderTable() {
     winScreen.classList.add('hidden');
   }
 
+  // Affichage UNO aléatoire
   if (unoVulnerablePlayer !== null) {
     if (unoVulnerablePlayer === myPlayerId) {
       btnUno.style.display = 'block';
@@ -318,7 +316,6 @@ function renderTable() {
     } else {
       btnUno.style.display = 'none';
       btnContre.style.display = 'block';
-      
       if (btnContre.dataset.active !== "true") {
         btnContre.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
         btnContre.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
@@ -416,9 +413,11 @@ function renderTable() {
   });
 }
 
+// Action : Piocher avec délai d'animation
 elDrawPile.addEventListener('click', () => {
-  if (!isOnline || activePlayerIndex !== myPlayerId) return;
+  if (!isOnline || activePlayerIndex !== myPlayerId || actionLocked) return;
 
+  actionLocked = true;
   const currentPlayer = players[myPlayerId];
   drawCard(currentPlayer, 1);
   
@@ -428,9 +427,17 @@ elDrawPile.addEventListener('click', () => {
 
   activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
   updateFirebaseState();
+
+  setTimeout(() => {
+    actionLocked = false;
+  }, 400);
 });
 
+// Action : Jouer une carte avec délai d'animation
 function playCard(cardIndex) {
+  if (actionLocked) return;
+  actionLocked = true;
+
   const currentPlayer = players[myPlayerId];
   const card = currentPlayer.hand.splice(cardIndex, 1)[0];
   discardPile.push(card);
@@ -446,15 +453,19 @@ function playCard(cardIndex) {
     gameStatus = 'finished';
     winner = myPlayerId;
     updateFirebaseState();
+    actionLocked = false;
     return;
   }
 
-  if (card.color === 'black') {
-    colorPickerOverlay.classList.remove('hidden');
-    window.pendingCardValue = card.value;
-  } else {
-    applySpecialEffects(card.value);
-  }
+  setTimeout(() => {
+    actionLocked = false;
+    if (card.color === 'black') {
+      colorPickerOverlay.classList.remove('hidden');
+      window.pendingCardValue = card.value;
+    } else {
+      applySpecialEffects(card.value);
+    }
+  }, 400);
 }
 
 document.querySelectorAll('.color-btn').forEach(btn => {
