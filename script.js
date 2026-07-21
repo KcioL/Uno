@@ -202,6 +202,11 @@ function createDeck() {
 }
 
 function drawCard(player, count = 1) {
+  // Sécurité Firebase : si le tableau 'hand' a disparu car il était vide, on le recrée
+  if (!player.hand) {
+    player.hand = [];
+  }
+
   for (let i = 0; i < count; i++) {
     if (deck.length === 0) {
       const topDiscard = discardPile.pop();
