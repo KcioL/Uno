@@ -17,6 +17,7 @@ let winner = null;
 let unoVulnerablePlayer = null; // ID du joueur à qui il reste 1 carte
 
 // DOM Elements
+const playerNameInput = document.getElementById('player-name-input');
 const lobbyControls = document.getElementById('lobby-controls');
 const roomInfo = document.getElementById('room-info');
 const displayRoomCode = document.getElementById('display-room-code');
@@ -69,7 +70,6 @@ btnContre.addEventListener('click', () => {
   }
 });
 
-
 // --- GESTION DES SALONS FIREBASE ---
 
 btnCreateRoom.addEventListener('click', () => {
@@ -77,10 +77,19 @@ btnCreateRoom.addEventListener('click', () => {
   myPlayerId = 0;
   isOnline = true;
 
+  // On récupère le pseudo (ou on met "Hôte" par défaut s'il n'a rien écrit)
+  const myName = playerNameInput.value.trim() || 'Hôte';
+
   const maxPlayers = parseInt(selectMaxPlayers.value);
   let initialPlayers = [];
   for (let i = 0; i < maxPlayers; i++) {
-    initialPlayers.push({ id: i, name: `Joueur ${i + 1}`, hand: [], joined: (i === 0) });
+    // Le créateur prend la place 0, les autres sont "En attente"
+    initialPlayers.push({ 
+      id: i, 
+      name: (i === 0) ? myName : 'En attente...', 
+      hand: [], 
+      joined: (i === 0) 
+    });
   }
 
   const initialGameState = {
@@ -125,7 +134,11 @@ btnJoinRoom.addEventListener('click', () => {
 
       if (assignedId === -1) return alert("Le salon est complet !");
       myPlayerId = assignedId;
+      
+      // On récupère le pseudo du joueur qui rejoint
+      const myName = playerNameInput.value.trim() || `Joueur ${myPlayerId + 1}`;
       data.players[myPlayerId].joined = true;
+      data.players[myPlayerId].name = myName;
 
       update(ref(window.db, 'rooms/' + roomCode), { players: data.players });
 
@@ -285,7 +298,7 @@ function renderTable() {
     winScreen.classList.remove('hidden');
     btnUno.style.display = 'none';
     btnContre.style.display = 'none';
-    return; // On stoppe le rendu
+    return;
   } else {
     winScreen.classList.add('hidden');
   }
@@ -299,7 +312,7 @@ function renderTable() {
       btnUno.style.display = 'none';
       btnContre.style.display = 'block';
       
-      // Positionnement aléatoire pour "Contre UNO" (entre 20% et 70% de l'écran)
+      // Positionnement aléatoire pour "Contre UNO"
       if (btnContre.dataset.active !== "true") {
         btnContre.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
         btnContre.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
@@ -322,14 +335,10 @@ function renderTable() {
   cardEl.innerHTML = `<span>${topCard.value}</span>`;
   elDiscardPile.appendChild(cardEl);
 
-
-// Adversaires
+  // Adversaires
   elOpponents.innerHTML = '';
   
-  // On calcule combien on a d'adversaires au total
   const numOpponents = players.length - 1;
-  
-  // On attribue des positions (classes CSS) en fonction du nombre de joueurs
   let positions = [];
   if (numOpponents === 1) positions = ['pos-top'];
   else if (numOpponents === 2) positions = ['pos-left', 'pos-right'];
@@ -337,9 +346,8 @@ function renderTable() {
   else if (numOpponents === 4) positions = ['pos-left', 'pos-top-left', 'pos-top-right', 'pos-right'];
   else if (numOpponents === 5) positions = ['pos-left', 'pos-top-left', 'pos-top', 'pos-top-right', 'pos-right'];
 
-  // On boucle sur les adversaires dans l'ordre de jeu, en partant de soi-même
   for (let i = 1; i <= numOpponents; i++) {
-    const oppIndex = (myPlayerId + i) % players.length; // Calcul magique pour tourner autour de la table
+    const oppIndex = (myPlayerId + i) % players.length;
     const p = players[oppIndex];
     const posClass = positions[i - 1];
 
@@ -349,10 +357,9 @@ function renderTable() {
     const nameEl = document.createElement('div');
     nameEl.className = 'opponent-name';
     
-    // Mettre en évidence le nom du joueur dont c'est le tour
     if (activePlayerIndex === oppIndex) {
-      nameEl.style.color = '#f1c40f'; // Texte en jaune
-      nameEl.style.border = '2px solid #f1c40f'; // Bordure jaune
+      nameEl.style.color = '#f1c40f';
+      nameEl.style.border = '2px solid #f1c40f';
       nameEl.textContent = `▶ ${p.name} (${p.hand ? p.hand.length : 0})`;
     } else {
       nameEl.textContent = `${p.name} (${p.hand ? p.hand.length : 0})`;
@@ -365,10 +372,8 @@ function renderTable() {
       p.hand.forEach((c) => {
         const cEl = document.createElement('div');
         cEl.className = 'card back';
-        // Si l'adversaire vient de piocher cette carte, on lance l'animation
         if (c.isNew) {
           cEl.classList.add('anim-draw');
-          // On ne remet pas c.isNew = false ici, car seul l'adversaire lui-même doit valider l'animation sur son propre écran
         }
         handEl.appendChild(cEl);
       });
@@ -414,7 +419,6 @@ elDrawPile.addEventListener('click', () => {
   const currentPlayer = players[myPlayerId];
   drawCard(currentPlayer, 1);
   
-  // Si on pioche, on n'est plus vulnérable au contre-uno
   if (unoVulnerablePlayer === myPlayerId) {
     unoVulnerablePlayer = null;
   }
@@ -429,18 +433,16 @@ function playCard(cardIndex) {
   discardPile.push(card);
   currentColor = card.color;
 
-  // GESTION DU "UNO !"
   if (currentPlayer.hand.length === 1) {
-    unoVulnerablePlayer = myPlayerId; // Le joueur n'a plus qu'une carte, il est vulnérable !
+    unoVulnerablePlayer = myPlayerId;
   } else if (unoVulnerablePlayer === myPlayerId) {
     unoVulnerablePlayer = null;
   }
 
-  // GESTION DE LA VICTOIRE (CORRIGÉ !)
   if (currentPlayer.hand.length === 0) {
     gameStatus = 'finished';
     winner = myPlayerId;
-    updateFirebaseState(); // Firebase est prévenu avant de s'arrêter !
+    updateFirebaseState();
     return;
   }
 
