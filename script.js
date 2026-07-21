@@ -8,13 +8,15 @@ let activePlayerIndex = 0;
 let playDirection = 1;
 let currentColor = '';
 
-// Nouveaux états pour le multijoueur
+// Nouveaux états
 let roomCode = '';
 let myPlayerId = 0;
 let isOnline = false;
-let gameStatus = 'waiting'; // 'waiting', 'playing', 'finished'
+let gameStatus = 'waiting';
 let winner = null;
-let unoVulnerablePlayer = null; // ID du joueur à qui il reste 1 carte
+let unoVulnerablePlayer = null; 
+let actionLocked = false; 
+let drawPenalty = 0; // NOUVEAU : Cumul des +2
 
 // DOM Elements
 const playerNameInput = document.getElementById('player-name-input');
@@ -34,7 +36,7 @@ const elActivePlayerName = document.getElementById('active-player-name');
 const elTurnIndicator = document.getElementById('turn-indicator');
 const colorPickerOverlay = document.getElementById('color-picker-overlay');
 
-// --- CREATION DYNAMIQUE DES ELEMENTS UNO & VICTOIRE ---
+// Écrans dynamiques
 const btnUno = document.createElement('button');
 btnUno.className = 'uno-btn';
 btnUno.textContent = 'UNO !';
@@ -45,7 +47,6 @@ btnContre.className = 'contre-uno-btn';
 btnContre.textContent = 'Contre UNO !';
 document.body.appendChild(btnContre);
 
-// Modification : Ajout du bouton Rejouer sur l'écran de victoire
 const winScreen = document.createElement('div');
 winScreen.className = 'win-overlay hidden';
 winScreen.innerHTML = `
@@ -54,10 +55,10 @@ winScreen.innerHTML = `
 `;
 document.body.appendChild(winScreen);
 
-// --- LOGIQUE DES BOUTONS UNO ET REJOUER ---
+// Boutons UNO & Rejouer
 btnUno.addEventListener('click', () => {
   if (unoVulnerablePlayer === myPlayerId) {
-    unoVulnerablePlayer = null; // Protégé !
+    unoVulnerablePlayer = null;
     updateFirebaseState();
     elTurnIndicator.textContent = "Tu as annoncé UNO ! Tu es protégé.";
   }
@@ -75,12 +76,10 @@ btnContre.addEventListener('click', () => {
 });
 
 document.getElementById('btn-replay').addEventListener('click', () => {
-  // N'importe quel joueur peut cliquer pour relancer la partie avec le même salon
   startOnlineGameFromFirebase(players);
 });
 
-
-// --- GESTION DES SALONS FIREBASE ---
+// Salons Firebase
 btnCreateRoom.addEventListener('click', () => {
   roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
   myPlayerId = 0;
@@ -107,7 +106,8 @@ btnCreateRoom.addEventListener('click', () => {
     discardPile: [],
     players: initialPlayers,
     winner: null,
-    unoVulnerablePlayer: null
+    unoVulnerablePlayer: null,
+    drawPenalty: 0 // On initialise la pénalité
   };
 
   const { ref, set } = window.firebaseRefs;
@@ -195,7 +195,8 @@ function updateFirebaseState() {
     discardPile: discardPile,
     players: players,
     winner: winner,
-    unoVulnerablePlayer: unoVulnerablePlayer
+    unoVulnerablePlayer: unoVulnerablePlayer,
+    drawPenalty: drawPenalty
   });
 }
 
@@ -209,20 +210,24 @@ function syncGameState(data) {
   players = data.players || [];
   winner = data.winner !== undefined ? data.winner : null;
   unoVulnerablePlayer = data.unoVulnerablePlayer !== undefined ? data.unoVulnerablePlayer : null;
+  drawPenalty = data.drawPenalty || 0;
 
   renderTable();
 
   if (gameStatus === 'playing') {
     const currentPlayer = players[activePlayerIndex];
+    // Affichage spécial si une pénalité est en cours
+    const penText = drawPenalty > 0 ? `<br><span style="color:#e74c3c; font-size:16px;">⚠️ PÉNALITÉ : +${drawPenalty} (Joue un +2 ou pioche)</span>` : '';
+    
     if (activePlayerIndex === myPlayerId) {
-      elTurnIndicator.innerHTML = `<span style="color: #2ecc71;">C'est à TON tour !</span> (Couleur : ${getFrenchColor(currentColor)})`;
+      elTurnIndicator.innerHTML = `<span style="color: #2ecc71;">C'est à TON tour !</span> (Couleur : ${getFrenchColor(currentColor)})${penText}`;
     } else {
-      elTurnIndicator.textContent = `Au tour de ${currentPlayer.name} (Couleur : ${getFrenchColor(currentColor)})`;
+      elTurnIndicator.innerHTML = `Au tour de ${currentPlayer.name} (Couleur : ${getFrenchColor(currentColor)})${penText}`;
     }
   }
 }
 
-// --- LOGIQUE DU JEU UNO ---
+// Logique de Jeu UNO
 function createDeck() {
   deck = [];
   COLORS.forEach(color => {
@@ -263,6 +268,11 @@ function drawCard(player, count = 1) {
 }
 
 function isPlayable(card) {
+  // RÈGLE +2 : Si une pénalité est active, seul un +2 peut être joué pour surenchérir
+  if (drawPenalty > 0) {
+    return card.value === '+2';
+  }
+  
   const topCard = discardPile[discardPile.length - 1];
   if (card.color === 'black') return true;
   if (card.color === currentColor) return true;
@@ -278,12 +288,11 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   gameStatus = 'playing';
   winner = null;
   unoVulnerablePlayer = null;
+  actionLocked = false;
+  drawPenalty = 0;
 
   players = currentPlayersData;
-  
-  // NOUVEAU : On s'assure de vider les mains de tout le monde avant de relancer
   players.forEach(p => { p.hand = []; });
-  
   players.forEach(p => drawCard(p, 7));
 
   let firstCard;
@@ -311,14 +320,21 @@ function renderTable() {
     winScreen.classList.add('hidden');
   }
 
+  // BOUTONS UNO ALÉATOIRES
   if (unoVulnerablePlayer !== null) {
     if (unoVulnerablePlayer === myPlayerId) {
       btnUno.style.display = 'block';
       btnContre.style.display = 'none';
+      if (btnUno.dataset.active !== "true") {
+        btnUno.style.bottom = 'auto'; // Retire l'ancrage en bas du CSS
+        btnUno.style.transform = 'none'; // Retire le centrage du CSS
+        btnUno.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
+        btnUno.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
+        btnUno.dataset.active = "true";
+      }
     } else {
       btnUno.style.display = 'none';
       btnContre.style.display = 'block';
-      
       if (btnContre.dataset.active !== "true") {
         btnContre.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
         btnContre.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
@@ -328,6 +344,7 @@ function renderTable() {
   } else {
     btnUno.style.display = 'none';
     btnContre.style.display = 'none';
+    btnUno.dataset.active = "false";
     btnContre.dataset.active = "false";
   }
 
@@ -336,7 +353,7 @@ function renderTable() {
   
   elDiscardPile.innerHTML = '';
   const cardEl = document.createElement('div');
-  cardEl.className = `card ${currentColor === 'black' ? topCard.color : currentColor} anim-play`;
+  cardEl.className = `card ${currentColor === 'black' ? topCard.color : currentColor}`;
   cardEl.innerHTML = `<span>${topCard.value}</span>`;
   elDiscardPile.appendChild(cardEl);
 
@@ -376,9 +393,6 @@ function renderTable() {
       p.hand.forEach((c) => {
         const cEl = document.createElement('div');
         cEl.className = 'card back';
-        if (c.isNew) {
-          cEl.classList.add('anim-draw');
-        }
         handEl.appendChild(cEl);
       });
     }
@@ -400,11 +414,6 @@ function renderTable() {
     const playable = isMyTurn && isPlayable(card);
     
     cEl.className = `card ${card.color} ${!playable ? 'unplayable' : ''}`;
-    if (card.isNew) {
-      cEl.classList.add('anim-draw');
-      card.isNew = false;
-    }
-    
     cEl.innerHTML = `<span>${card.value}</span>`;
     
     cEl.addEventListener('click', () => {
@@ -416,45 +425,104 @@ function renderTable() {
   });
 }
 
-elDrawPile.addEventListener('click', () => {
-  if (!isOnline || activePlayerIndex !== myPlayerId) return;
-
-  const currentPlayer = players[myPlayerId];
-  drawCard(currentPlayer, 1);
-  
-  if (unoVulnerablePlayer === myPlayerId) {
-    unoVulnerablePlayer = null;
-  }
-
-  activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
-  updateFirebaseState();
-});
-
-function playCard(cardIndex) {
-  const currentPlayer = players[myPlayerId];
-  const card = currentPlayer.hand.splice(cardIndex, 1)[0];
-  discardPile.push(card);
-  currentColor = card.color;
-
-  if (currentPlayer.hand.length === 1) {
-    unoVulnerablePlayer = myPlayerId;
-  } else if (unoVulnerablePlayer === myPlayerId) {
-    unoVulnerablePlayer = null;
-  }
-
-  if (currentPlayer.hand.length === 0) {
-    gameStatus = 'finished';
-    winner = myPlayerId;
-    updateFirebaseState();
+// Fonction d'Animation
+function animateCardFlight(fromElement, toElement, cardData, onComplete) {
+  if (!fromElement || !toElement) {
+    if (onComplete) onComplete();
     return;
   }
 
-  if (card.color === 'black') {
-    colorPickerOverlay.classList.remove('hidden');
-    window.pendingCardValue = card.value;
-  } else {
-    applySpecialEffects(card.value);
-  }
+  const startRect = fromElement.getBoundingClientRect();
+  const endRect = toElement.getBoundingClientRect();
+
+  const dx = startRect.left - endRect.left;
+  const dy = startRect.top - endRect.top;
+
+  const flyer = document.createElement('div');
+  flyer.className = `card ${cardData.color === 'black' ? 'black' : cardData.color} flying-card`;
+  flyer.innerHTML = `<span>${cardData.value}</span>`;
+  
+  flyer.style.setProperty('--start-x', `${dx}px`);
+  flyer.style.setProperty('--start-y', `${dy}px`);
+  flyer.style.left = `${endRect.left}px`;
+  flyer.style.top = `${endRect.top}px`;
+
+  document.body.appendChild(flyer);
+
+  flyer.addEventListener('animationend', () => {
+    flyer.remove();
+    if (onComplete) onComplete();
+  });
+}
+
+elDrawPile.addEventListener('click', () => {
+  if (!isOnline || activePlayerIndex !== myPlayerId || actionLocked) return;
+
+  actionLocked = true;
+  const currentPlayer = players[myPlayerId];
+  
+  const deckEl = document.getElementById('draw-pile');
+  const handEl = document.getElementById('active-hand');
+  const dummyCard = { color: 'back', value: '' }; // Dos de carte visuel
+
+  // Si on pioche sous la contrainte d'une pénalité, on pioche le montant accumulé
+  let cardsToDraw = drawPenalty > 0 ? drawPenalty : 1;
+
+  animateCardFlight(deckEl, handEl, dummyCard, () => {
+    drawCard(currentPlayer, cardsToDraw);
+    
+    if (unoVulnerablePlayer === myPlayerId) {
+      unoVulnerablePlayer = null;
+    }
+
+    if (drawPenalty > 0) {
+      drawPenalty = 0; // On annule la pénalité puisqu'on vient de la manger
+    }
+
+    activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
+    updateFirebaseState();
+    actionLocked = false;
+  });
+});
+
+function playCard(cardIndex) {
+  if (actionLocked) return;
+  actionLocked = true;
+
+  const currentPlayer = players[myPlayerId];
+  const cardToPlay = currentPlayer.hand[cardIndex];
+
+  const cardElements = document.querySelectorAll('#active-hand .card');
+  const selectedCardEl = cardElements[cardIndex];
+  const discardEl = document.getElementById('discard-pile');
+
+  animateCardFlight(selectedCardEl, discardEl, cardToPlay, () => {
+    const card = currentPlayer.hand.splice(cardIndex, 1)[0];
+    discardPile.push(card);
+    currentColor = card.color;
+
+    if (currentPlayer.hand.length === 1) {
+      unoVulnerablePlayer = myPlayerId;
+    } else if (unoVulnerablePlayer === myPlayerId) {
+      unoVulnerablePlayer = null;
+    }
+
+    if (currentPlayer.hand.length === 0) {
+      gameStatus = 'finished';
+      winner = myPlayerId;
+      updateFirebaseState();
+      actionLocked = false;
+      return;
+    }
+
+    actionLocked = false;
+    if (card.color === 'black') {
+      colorPickerOverlay.classList.remove('hidden');
+      window.pendingCardValue = card.value;
+    } else {
+      applySpecialEffects(card.value);
+    }
+  });
 }
 
 document.querySelectorAll('.color-btn').forEach(btn => {
@@ -476,11 +544,11 @@ function applySpecialEffects(cardValue) {
   } else if (cardValue === '⊘') {
     skipNext = true;
   } else if (cardValue === '+2') {
-    skipNext = true;
-    drawCard(nextPlayer, 2);
+    drawPenalty += 2; // On augmente la pénalité au lieu de piocher instantanément
+    // On ne "skipNext" pas, le tour passe normalement à la victime pour qu'elle puisse répondre
   } else if (cardValue === '+4') {
     skipNext = true;
-    drawCard(nextPlayer, 4);
+    drawCard(nextPlayer, 4); // Le +4 reste standard (non cumulable dans cette version)
   }
 
   let steps = skipNext ? 2 : 1;
