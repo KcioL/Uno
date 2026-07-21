@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNO En Ligne</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- SDK Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // TA CONFIGURATION FIREBASE (Remplace par tes propres clés de la console Firebase si ce n'est pas déjà fait)
+    const firebaseConfig = {
+      apiKey: "TA_CLE_API",
+      authDomain: "TON_PROJET.firebaseapp.com",
+      databaseURL: "https://TON_PROJET-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "TON_PROJET",
+      storageBucket: "TON_PROJET.appspot.com",
+      messagingSenderId: "TON_ID",
+      appId: "TON_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.db = db;
+    window.firebaseRefs = { ref, set, onValue, update };
+  </script>
+</head>
+<body>
+  <div class="game-container">
+    <header class="game-header">
+      <h1>UNO En Ligne</h1>
+      
+      <!-- Menu de salon en ligne avec sélecteur du nombre de joueurs -->
+      <div class="game-settings" id="lobby-controls">
+        <select id="select-max-players" style="padding: 6px; border-radius: 6px; font-weight: bold; background: #ecf0f1; border: none;">
+          <option value="2">2 Joueurs</option>
+          <option value="3">3 Joueurs</option>
+          <option value="4">4 Joueurs</option>
+          <option value="5">5 Joueurs</option>
+          <option value="6">6 Joueurs</option>
+        </select>
+        <button id="btn-create-room" class="btn btn-start">Créer un salon</button>
+        <div id="join-section" style="display: flex; gap: 8px;">
+          <input type="text" id="room-code-input" placeholder="Code salon" style="text-transform: uppercase; width: 90px; padding: 6px; border-radius: 6px; border: none;">
+          <button id="btn-join-room" class="btn btn-secondary" style="background-color: #3498db; color: white;">Rejoindre</button>
+        </div>
+      </div>
+      <div id="room-info" class="hidden" style="color: #f1c40f; font-weight: bold;">
+        Salon : <span id="display-room-code"></span>
+      </div>
+    </header>
+
+    <div class="uno-table">
+      <!-- Zone des adversaires (autour de la table) -->
+      <div id="opponents-container" class="opponents-container"></div>
+
+      <!-- Centre de la table : Pioche et Défausse -->
+      <div class="center-table">
+        <div class="draw-pile" id="draw-pile" title="Piocher une carte">
+          <div class="uno-logo-back">UNO</div>
+        </div>
+        <div class="discard-pile" id="discard-pile">
+          <!-- La dernière carte jouée apparaîtra ici -->
+        </div>
+      </div>
+      
+      <div class="turn-indicator" id="turn-indicator">Créez ou rejoignez un salon pour commencer.</div>
+
+      <!-- Zone du joueur actif (en bas) -->
+      <div class="active-player-zone">
+        <h2 id="active-player-name">Joueur</h2>
+        <div class="hand-container" id="active-hand"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Écran de choix de couleur (Joker / +4) -->
+  <div id="color-picker-overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Choisissez une couleur</h2>
+      <div class="color-buttons">
+        <button class="color-btn red" data-color="red"></button>
+        <button class="color-btn blue" data-color="blue"></button>
+        <button class="color-btn green" data-color="green"></button>
+        <button class="color-btn yellow" data-color="yellow"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
