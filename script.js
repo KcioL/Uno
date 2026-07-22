@@ -16,7 +16,8 @@ let gameStatus = 'waiting';
 let winner = null;
 let unoVulnerablePlayer = null; 
 let actionLocked = false; 
-let drawPenalty = 0; // NOUVEAU : Cumul des +2
+let drawPenalty = 0; // Cumul des +2 / +4
+let hasDrawnThisTurn = false; // Retient si on a pioché
 
 // DOM Elements
 const playerNameInput = document.getElementById('player-name-input');
@@ -113,7 +114,7 @@ btnCreateRoom.addEventListener('click', () => {
     players: initialPlayers,
     winner: null,
     unoVulnerablePlayer: null,
-    drawPenalty: 0 // On initialise la pénalité
+    drawPenalty: 0 
   };
 
   const { ref, set } = window.firebaseRefs;
@@ -156,6 +157,7 @@ btnJoinRoom.addEventListener('click', () => {
       lobbyControls.classList.add('hidden');
       roomInfo.classList.remove('hidden');
       displayRoomCode.textContent = roomCode;
+
       if (data.players.every(p => p.joined)) {
         elTurnIndicator.textContent = "Connecté ! L'hôte lance la partie...";
       } else {
@@ -206,7 +208,6 @@ function updateFirebaseState() {
 }
 
 function syncGameState(data) {
-  // 1. Détection des changements AVANT de mettre à jour le jeu
   const oldDiscardLength = discardPile.length;
   const newDiscardLength = data.discardPile ? data.discardPile.length : 0;
   
@@ -215,7 +216,6 @@ function syncGameState(data) {
   let opponentWhoDrew = -1;
   let cardsDrawn = 0;
 
-  // On compare les cartes pour savoir qui a joué ou pioché
   for (let i = 0; i < data.players.length; i++) {
     const oldHandSize = (players[i] && players[i].hand) ? players[i].hand.length : 0;
     const newHandSize = (data.players[i] && data.players[i].hand) ? data.players[i].hand.length : 0;
@@ -229,7 +229,10 @@ function syncGameState(data) {
     }
   }
 
-  // 2. Mise à jour des variables de jeu
+  if (data.activePlayerIndex !== myPlayerId) {
+    hasDrawnThisTurn = false;
+  }
+
   gameStatus = data.status || 'waiting';
   activePlayerIndex = data.activePlayerIndex;
   playDirection = data.playDirection;
@@ -241,39 +244,32 @@ function syncGameState(data) {
   unoVulnerablePlayer = data.unoVulnerablePlayer !== undefined ? data.unoVulnerablePlayer : null;
   drawPenalty = data.drawPenalty || 0;
 
-  // 3. On affiche la table mise à jour
   renderTable();
 
-  // 4. ANIMATION : Si un adversaire a JOUÉ une carte
   if (opponentWhoPlayed !== -1 && cardPlayedByOpponent) {
     const fromEl = document.getElementById(`opponent-zone-${opponentWhoPlayed}`);
     const toEl = document.getElementById('discard-pile');
     if (fromEl && toEl) {
-      // On cache la carte posée le temps que l'animation de vol se fasse
       const topCardEl = toEl.lastChild;
       if (topCardEl) topCardEl.style.opacity = '0'; 
-
       animateCardFlight(fromEl, toEl, cardPlayedByOpponent, () => {
-        if (topCardEl) topCardEl.style.opacity = '1'; // On la fait réapparaître
+        if (topCardEl) topCardEl.style.opacity = '1';
       });
     }
   }
 
-  // 5. ANIMATION : Si un adversaire a PIOCHÉ des cartes
   if (opponentWhoDrew !== -1) {
     const toEl = document.getElementById(`opponent-zone-${opponentWhoDrew}`);
     const fromEl = document.getElementById('draw-pile');
     if (fromEl && toEl) {
-      // S'il pioche plusieurs cartes (ex: +2, +4), on les anime une par une
       for(let k = 0; k < cardsDrawn; k++) {
         setTimeout(() => {
           animateCardFlight(fromEl, toEl, {color: 'back', value: ''});
-        }, k * 150); // Décalage de 150ms entre chaque carte
+        }, k * 150);
       }
     }
   }
 
-  // 6. Mise à jour du texte du tour
   if (gameStatus === 'playing') {
     const currentPlayer = players[activePlayerIndex];
     let penText = '';
@@ -282,6 +278,9 @@ function syncGameState(data) {
       const topCard = discardPile[discardPile.length - 1];
       const typeRequis = topCard.value === '+4' ? '+4' : '+2';
       penText = `<br><span style="color:#e74c3c; font-size:16px;">⚠️ PÉNALITÉ : +${drawPenalty} (Joue un ${typeRequis} ou pioche)</span>`;
+    } 
+    else if (hasDrawnThisTurn && activePlayerIndex === myPlayerId) {
+      penText = `<br><span style="color:#f1c40f; font-size:16px;">💡 Carte jouable ! Joue-la, ou re-clique sur la pioche pour passer.</span>`;
     }
     
     if (activePlayerIndex === myPlayerId) {
@@ -335,7 +334,6 @@ function drawCard(player, count = 1) {
 function isPlayable(card) {
   const topCard = discardPile[discardPile.length - 1];
 
-  // RÈGLE STRICTE : Si une pénalité est active, on doit répondre avec le même type de carte
   if (drawPenalty > 0) {
     if (topCard.value === '+2') return card.value === '+2';
     if (topCard.value === '+4') return card.value === '+4';
@@ -352,7 +350,6 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   discardPile = [];
   playDirection = 1;
   
-  // NOUVEAU : On choisit un joueur au hasard pour commencer !
   activePlayerIndex = Math.floor(Math.random() * currentPlayersData.length);
   
   gameStatus = 'playing';
@@ -360,6 +357,7 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   unoVulnerablePlayer = null;
   actionLocked = false;
   drawPenalty = 0;
+  hasDrawnThisTurn = false;
 
   players = currentPlayersData;
   players.forEach(p => { p.hand = []; });
@@ -378,6 +376,7 @@ function startOnlineGameFromFirebase(currentPlayersData) {
   currentColor = firstCard.color;
   updateFirebaseState();
 }
+
 function renderTable() {
   if (gameStatus === 'finished') {
     document.getElementById('win-text').innerHTML = `🎉 ${players[winner].name} a gagné ! 🎉`;
@@ -389,14 +388,13 @@ function renderTable() {
     winScreen.classList.add('hidden');
   }
 
-  // BOUTONS UNO ALÉATOIRES
   if (unoVulnerablePlayer !== null) {
     if (unoVulnerablePlayer === myPlayerId) {
       btnUno.style.display = 'block';
       btnContre.style.display = 'none';
       if (btnUno.dataset.active !== "true") {
-        btnUno.style.bottom = 'auto'; // Retire l'ancrage en bas du CSS
-        btnUno.style.transform = 'none'; // Retire le centrage du CSS
+        btnUno.style.bottom = 'auto'; 
+        btnUno.style.transform = 'none'; 
         btnUno.style.left = Math.floor(Math.random() * 50 + 20) + 'vw';
         btnUno.style.top = Math.floor(Math.random() * 50 + 20) + 'vh';
         btnUno.dataset.active = "true";
@@ -436,14 +434,15 @@ function renderTable() {
   else if (numOpponents === 4) positions = ['pos-left', 'pos-top-left', 'pos-top-right', 'pos-right'];
   else if (numOpponents === 5) positions = ['pos-left', 'pos-top-left', 'pos-top', 'pos-top-right', 'pos-right'];
 
-for (let i = 1; i <= numOpponents; i++) {
+  for (let i = 1; i <= numOpponents; i++) {
     const oppIndex = (myPlayerId + i) % players.length;
     const p = players[oppIndex];
     const posClass = positions[i - 1];
 
     const oppZone = document.createElement('div');
     oppZone.className = `opponent-zone ${posClass}`;
-    oppZone.id = `opponent-zone-${oppIndex}`;     
+    oppZone.id = `opponent-zone-${oppIndex}`; 
+    
     const nameEl = document.createElement('div');
     nameEl.className = 'opponent-name';
     
@@ -501,41 +500,36 @@ function animateCardFlight(fromElement, toElement, cardData, onComplete) {
     return;
   }
 
-  // On calcule les coordonnées de départ et d'arrivée
   const startRect = fromElement.getBoundingClientRect();
   const endRect = toElement.getBoundingClientRect();
 
   const dx = startRect.left - endRect.left;
   const dy = startRect.top - endRect.top;
 
-  // On crée la carte volante
   const flyer = document.createElement('div');
   flyer.className = `card ${cardData.color === 'black' ? 'black' : cardData.color}`;
   if (cardData.color === 'back') {
-    flyer.className = 'card back'; // Pour l'animation de la pioche
+    flyer.className = 'card back'; 
   }
   flyer.innerHTML = cardData.value ? `<span>${cardData.value}</span>` : '';
   
-  // On la place par-dessus tout le reste
   flyer.style.position = 'fixed';
   flyer.style.left = `${endRect.left}px`;
   flyer.style.top = `${endRect.top}px`;
   flyer.style.zIndex = '9999';
-  flyer.style.pointerEvents = 'none'; // Pour ne pas bloquer les clics
+  flyer.style.pointerEvents = 'none'; 
   flyer.style.margin = '0';
 
   document.body.appendChild(flyer);
 
-  // On lance l'animation native du navigateur (Web Animations API)
   const animation = flyer.animate([
-    { transform: `translate(${dx}px, ${dy}px) scale(1)` }, // Point de départ
-    { transform: `translate(0px, 0px) scale(1)` }          // Point d'arrivée
+    { transform: `translate(${dx}px, ${dy}px) scale(1)` }, 
+    { transform: `translate(0px, 0px) scale(1)` }          
   ], {
-    duration: 400, // 400 millisecondes
-    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' // Courbe de vitesse fluide
+    duration: 400, 
+    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' 
   });
 
-  // Quand l'animation est finie, on détruit la fausse carte et on valide le coup
   animation.onfinish = () => {
     flyer.remove();
     if (onComplete) onComplete();
@@ -545,14 +539,20 @@ function animateCardFlight(fromElement, toElement, cardData, onComplete) {
 elDrawPile.addEventListener('click', () => {
   if (!isOnline || activePlayerIndex !== myPlayerId || actionLocked) return;
 
+  if (hasDrawnThisTurn) {
+    hasDrawnThisTurn = false;
+    activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
+    updateFirebaseState();
+    return;
+  }
+
   actionLocked = true;
   const currentPlayer = players[myPlayerId];
   
   const deckEl = document.getElementById('draw-pile');
   const handEl = document.getElementById('active-hand');
-  const dummyCard = { color: 'back', value: '' }; // Dos de carte visuel
+  const dummyCard = { color: 'back', value: '' };
 
-  // Si on pioche sous la contrainte d'une pénalité, on pioche le montant accumulé
   let cardsToDraw = drawPenalty > 0 ? drawPenalty : 1;
 
   animateCardFlight(deckEl, handEl, dummyCard, () => {
@@ -563,18 +563,29 @@ elDrawPile.addEventListener('click', () => {
     }
 
     if (drawPenalty > 0) {
-      drawPenalty = 0; // On annule la pénalité puisqu'on vient de la manger
+      drawPenalty = 0; 
+      activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
+      updateFirebaseState();
+      actionLocked = false;
+    } else {
+      const drawnCard = currentPlayer.hand[currentPlayer.hand.length - 1];
+      if (isPlayable(drawnCard)) {
+        hasDrawnThisTurn = true;
+        updateFirebaseState(); 
+        actionLocked = false;
+      } else {
+        activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
+        updateFirebaseState();
+        actionLocked = false;
+      }
     }
-
-    activePlayerIndex = (activePlayerIndex + playDirection + players.length) % players.length;
-    updateFirebaseState();
-    actionLocked = false;
   });
 });
 
 function playCard(cardIndex) {
   if (actionLocked) return;
   actionLocked = true;
+  hasDrawnThisTurn = false;
 
   const currentPlayer = players[myPlayerId];
   const cardToPlay = currentPlayer.hand[cardIndex];
@@ -623,8 +634,7 @@ document.querySelectorAll('.color-btn').forEach(btn => {
 function applySpecialEffects(cardValue) {
   let skipNext = false;
   const nextPlayerIdx = (activePlayerIndex + playDirection + players.length) % players.length;
-  const nextPlayer = players[nextPlayerIdx];
-
+  
   if (cardValue === '⇄') {
     if (players.length === 2) skipNext = true;
     else playDirection *= -1;
@@ -633,7 +643,7 @@ function applySpecialEffects(cardValue) {
   } else if (cardValue === '+2') {
     drawPenalty += 2; 
   } else if (cardValue === '+4') {
-    drawPenalty += 4; // NOUVEAU : Le +4 s'ajoute à la pénalité au lieu de skipper le tour
+    drawPenalty += 4; 
   }
 
   let steps = skipNext ? 2 : 1;
